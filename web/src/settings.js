@@ -61,16 +61,12 @@ function paint(session) {
   if (username) username.value = session?.user?.user_metadata?.username || '';
   if (emailInput) emailInput.value = email;
 
-  loadSubscription();
-}
-
-  // Avatar: first letter of username / email
   const avatar = document.getElementById('settings-avatar');
-  const letter = (name.charAt(0) || '?').toUpperCase();
-  avatar.textContent = letter;
+  if (avatar) avatar.textContent = (name.charAt(0) || '?').toUpperCase();
 
   accountId = session?.user?.id || '';
   loadSettings();
+  loadSubscription();
 }
 
 /* ---------- what was saved before ---------- */

@@ -15,10 +15,10 @@
     <link rel="icon" href="/FindMySize/favicon.ico" sizes="32x32" />
     <link rel="apple-touch-icon" href="/FindMySize/apple-touch-icon.png" />
     <script src="/FindMySize/theme-init.js"></script>
-    <script type="module" crossorigin src="/FindMySize/assets/settings-CnLjC_l3.js"></script>
+    <script type="module" crossorigin src="/FindMySize/assets/settings-BoYIXCSE.js"></script>
     <link rel="modulepreload" crossorigin href="/FindMySize/assets/modulepreload-polyfill-B5Qt9EMX.js">
-    <link rel="modulepreload" crossorigin href="/FindMySize/assets/api-LzInvLMW.js">
-    <link rel="modulepreload" crossorigin href="/FindMySize/assets/nav-DlKLfbsf.js">
+    <link rel="modulepreload" crossorigin href="/FindMySize/assets/api-CdX46VNZ.js">
+    <link rel="modulepreload" crossorigin href="/FindMySize/assets/nav-u_PfSvue.js">
     <link rel="stylesheet" crossorigin href="/FindMySize/assets/settings-DuXYVBoH.css">
     <link rel="stylesheet" crossorigin href="/FindMySize/assets/theme-B_KWcFXd.css">
   </head>
@@ -300,34 +300,21 @@
                   <p class="panel-kicker">Billing</p>
                   <h2>Subscription</h2>
                 </div>
-                <p class="panel-side">One flat price per store.</p>
+                <p class="panel-side">Unlimited scans, charts, and popup uses.</p>
               </header>
-              <div class="settings-plan-card">
+
+              <div class="settings-plan-card" id="settings-plan-card">
                 <div class="settings-plan-info">
-                  <p class="settings-plan-name" id="settings-plan-name">Pro</p>
-                  <p class="settings-plan-price">$150 <span class="settings-plan-period">/ month</span></p>
-                  <p class="settings-plan-next" id="settings-plan-next">Next invoice: &mdash;</p>
+                  <p class="settings-plan-name" id="settings-plan-name">Free</p>
+                  <p class="settings-plan-price" id="settings-plan-price">Free tier</p>
+                  <p class="settings-plan-next" id="settings-plan-next">3 scans, 1 chart, 5 popup uses on this device.</p>
                 </div>
                 <div class="settings-plan-actions">
-                  <button class="btn btn--primary settings-manage-subscription" id="settings-manage-subscription" type="button">Manage subscription</button>
-                  <button class="btn btn--ghost settings-download-invoice" id="settings-download-invoice" type="button">Download latest invoice</button>
+                  <a class="btn btn--primary" id="settings-renew" href="/FindMySize/register/">Renew subscription</a>
+                  <button class="btn btn--ghost" id="settings-cancel" type="button" hidden>Cancel subscription</button>
                 </div>
               </div>
-              <div class="settings-grid settings-billing-grid">
-                <div class="settings-field">
-                  <label class="settings-field-label" for="settings-billing-email">Billing email</label>
-                  <input type="email" id="settings-billing-email" />
-                  <p class="settings-field-hint">Invoices and receipts are sent here.</p>
-                </div>
-                <div class="settings-field">
-                  <label class="settings-field-label" for="settings-tax-id">Tax ID (optional)</label>
-                  <input type="text" id="settings-tax-id" placeholder="e.g. VAT number" />
-                  <p class="settings-field-hint">Added to invoices where applicable.</p>
-                </div>
-              </div>
-              <div class="settings-actions">
-                <button class="btn btn--primary settings-save-billing" id="settings-save-billing" type="button">Save billing details</button>
-              </div>
+
               <p class="settings-panel-hint" id="settings-billing-status" role="status"></p>
             </div>
 
