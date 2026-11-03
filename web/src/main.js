@@ -902,6 +902,7 @@ async function runAnalysis() {
     }
 
     log('analysis result', data);
+    window.dispatchEvent(new Event('fms:usage'));
     renderAnalysis(data);
     setStatus(`Done in ${((Date.now() - startedAt) / 1000).toFixed(1)}s · measured on ${measuredOn}`, 'ok');
   } catch (e) {

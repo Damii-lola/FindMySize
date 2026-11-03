@@ -1,7 +1,7 @@
 import { db, supabaseConfigured } from './supabase.js';
 
 const mem = new Map();
-const CAPS = { scans: 3, charts: 1, popups: 10 };
+const CAPS = { scans: 3, charts: 1, popups: 5 };
 
 export function deviceId(req) {
   const id = String(req.get('x-device-id') || '').trim().slice(0, 80);
@@ -65,7 +65,7 @@ async function writeUsage(id, row) {
 const MESSAGES = {
   scans: 'You have used your 3 free scans on this device. Activate an account to continue.',
   charts: 'This device can keep one free size chart. Activate an account for more.',
-  popups: 'This free chart has been used 10 times and is now off. Activate an account to turn it back on.',
+  popups: 'This free chart has been used 5 times and is now off. Activate an account to turn it back on.',
 };
 
 export async function consume(req, kind) {
@@ -80,6 +80,28 @@ export async function consume(req, kind) {
   next[kind] = used + 1;
   await writeUsage(id, next);
   return { ok: true, used: next[kind], cap };
+}
+
+/** Remaining free uses for this device. Unlimited accounts report nulls. */
+export async function usageSnapshot(req) {
+  const access = await isUnlimited(req);
+  if (access.unlimited) return { unlimited: true, scans: null, charts: null, popups: null, caps: CAPS };
+  const row = await readUsage(deviceId(req));
+  const used = {
+    scans: Number(row.scans || 0),
+    charts: Number(row.charts || 0),
+    popups: Number(row.popups || 0),
+  };
+  return {
+    unlimited: false,
+    used,
+    left: {
+      scans: Math.max(0, CAPS.scans - used.scans),
+      charts: Math.max(0, CAPS.charts - used.charts),
+      popups: Math.max(0, CAPS.popups - used.popups),
+    },
+    caps: CAPS,
+  };
 }
 
 export const consumeScan = (req) => consume(req, 'scans');

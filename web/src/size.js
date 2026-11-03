@@ -20,6 +20,7 @@
  * to answer: the door prefers to be open rather than to hang.
  */
 import './nav.js';
+import './free-tier.js';
 import { cloudConfig } from './services/config.js';
 import { getSession, isAccount } from './services/auth.js';
 import { applyPopupConfig, DEFAULTS } from './popup-config.js';

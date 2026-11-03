@@ -21,6 +21,7 @@
  * scanner does.
  */
 import './nav.js';
+import './free-tier.js';
 import { MEASURES } from '@shared/measures.js';
 import { getSession, isAccount, signOut } from './services/auth.js';
 import { isSubscribed } from './services/subscriptions.js';

@@ -1,5 +1,6 @@
 import { API_URL } from './config.js';
 import { accessToken } from './auth.js';
+import { deviceId } from './device.js';
 
 let slowHandler = () => {};
 /** Called with true/false while a request takes long (Render free tier cold start). */
@@ -7,7 +8,7 @@ export const onSlow = (fn) => { slowHandler = fn; };
 
 export async function api(path, { method = 'GET', body, form, timeout = 90_000 } = {}) {
   const token = await accessToken();
-  const headers = {};
+  const headers = { 'X-Device-Id': deviceId() };
   if (token) headers.Authorization = `Bearer ${token}`;
   if (body !== undefined) headers['Content-Type'] = 'application/json';
   const slow = setTimeout(() => slowHandler(true), 2500);

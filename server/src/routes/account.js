@@ -3,7 +3,7 @@ import { Router } from 'express';
 import { db, supabaseConfigured } from '../lib/supabase.js';
 import { HttpError, ah } from '../lib/errors.js';
 import { config } from '../config.js';
-import { consume, isUnlimited, rememberDevSub, userFromAuth } from '../lib/limits.js';
+import { consume, isUnlimited, rememberDevSub, userFromAuth, usageSnapshot } from '../lib/limits.js';
 import { makeActivationCode, markDevInactive } from './auth.js';
 
 const codes = new Map();
@@ -71,8 +71,8 @@ payRoutes.get('/code', ah(async (req, res) => {
 }));
 
 usageRoutes.get('/', ah(async (req, res) => {
-  const access = await isUnlimited(req);
-  res.json({ unlimited: access.unlimited, email: access.user?.email || null });
+  const snap = await usageSnapshot(req);
+  res.json(snap);
 }));
 
 usageRoutes.post('/:kind', ah(async (req, res) => {

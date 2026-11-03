@@ -12,6 +12,7 @@
  * is easy to spot.
  */
 import { API_URL } from '../services/config.js';
+import { deviceId } from '../services/device.js';
 
 const log = (...args) => console.log('[3dg:api]', ...args);
 
@@ -22,7 +23,8 @@ async function request(url, init, { timeoutMs, onTick } = {}) {
   const tick = onTick ? setInterval(() => onTick(Math.round((Date.now() - started) / 1000)), 1000) : null;
 
   try {
-    const res = await fetch(url, { ...init, signal: ctl.signal });
+    const headers = { ...(init.headers || {}), 'X-Device-Id': deviceId() };
+    const res = await fetch(url, { ...init, headers, signal: ctl.signal });
     const elapsed = Date.now() - started;
     log('response', res.status, `${elapsed}ms`);
 
