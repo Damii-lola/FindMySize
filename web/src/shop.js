@@ -11,28 +11,36 @@ const inlineSlot = document.getElementById('inline-slot');
 function paint(rawConfig) {
   const { button } = normalizePopup(rawConfig);
   document.querySelectorAll('.threeDG-float').forEach((el) => el.remove());
+  if (inlineSlot) inlineSlot.replaceChildren();
 
-  const style = (el) => {
-    el.textContent = button.label || 'Find My Size';
-    el.style.borderRadius = `${button.radius}px`;
-    el.style.background = button.bg;
-    el.style.color = button.textColor;
-  };
+  const el = document.createElement('button');
+  el.type = 'button';
+  el.className = 'fms-preview-btn';
+  el.textContent = button.label || 'Find My Size';
+  el.style.cssText = [
+    'display:inline-flex',
+    'align-items:center',
+    'gap:8px',
+    'padding:12px 18px',
+    'border:0',
+    `border-radius:${button.radius}px`,
+    `background:${button.bg}`,
+    `color:${button.textColor}`,
+    'font:650 15px/1.2 system-ui,sans-serif',
+    'cursor:pointer',
+    'box-shadow:0 10px 24px rgba(0,0,0,.18)',
+  ].join(';');
 
-  const inline = document.getElementById('fms-inline') || inlineSlot?.querySelector('button');
-  if (inline) style(inline);
-
-  if (button.float) {
-    const wrap = document.createElement('div');
-    wrap.className = 'threeDG-float' + (button.side === 'left' ? ' threeDG-left' : '');
-    wrap.style.cssText = `position:fixed;${button.side === 'left' ? 'left' : 'right'}:18px;bottom:18px;z-index:50`;
-    const el = document.createElement('button');
-    el.type = 'button';
-    el.className = 'fms-preview-btn';
-    style(el);
-    wrap.append(el);
-    document.body.append(wrap);
+  if (!button.float && inlineSlot) {
+    inlineSlot.append(el);
+    return;
   }
+
+  const wrap = document.createElement('div');
+  wrap.className = 'threeDG-float' + (button.side === 'left' ? ' threeDG-left' : '');
+  wrap.style.cssText = `position:fixed;${button.side === 'left' ? 'left' : 'right'}:18px;bottom:18px;z-index:50`;
+  wrap.append(el);
+  document.body.append(wrap);
 }
 
 window.addEventListener('message', (event) => {
