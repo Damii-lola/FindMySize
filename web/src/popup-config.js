@@ -359,20 +359,45 @@ export function fontFromGuess(guess) {
   return 'default';
 }
 
-/** Apply a site's colours the same way a Look preset does: background, text, accent. */
+/**
+ * Nudge a matched palette until it can be read.
+ * Text must clear the ground. The accent must not sit on top of the ground
+ * or the text — that is the "hidden" look. Small moves only; the brand stays.
+ */
+function fitContrast(background, text, accent) {
+  let ground = background || '#221a15';
+  let ink = text || readableOn(ground);
+  let mark = accent || '#f0521f';
+
+  // A mid ground swallows both the wash and the type. Push it to a clear side.
+  const gl = luminance(ground);
+  if (gl > 0.35 && gl < 0.75) ground = mix(ground, '#14110e', 0.55);
+
+  if (contrast(ink, ground) < 4.5) ink = readableOn(ground);
+  // Still close: step the ink further from the ground.
+  if (contrast(ink, ground) < 5.5) {
+    ink = luminance(ground) > 0.4 ? mix(ink, '#0c0a09', 0.35) : mix(ink, '#ffffff', 0.18);
+  }
+
+  // Accent too close to the ground, or to the text, so it vanishes in the wash.
+  if (contrast(mark, ground) < 2.4) {
+    mark = luminance(ground) > 0.4 ? mix(mark, '#0c0a09', 0.4) : mix(mark, '#ffffff', 0.28);
+  }
+  if (contrast(mark, ink) < 2) {
+    mark = mix(mark, luminance(ground) > 0.4 ? '#ffffff' : '#0c0a09', 0.25);
+  }
+  return { background: ground, text: ink, accent: mark };
+}
+
+/** Apply a site's colours the same way a Look preset does, then clear them for reading. */
 export function fromAnalysis(c, found) {
   const accent = hex6(found.primaryColor) || hex6(found.accentColor);
   const background = hex6(found.backgroundColor);
   const text = hex6(found.textColor);
-  const theme = {};
-  if (background) theme.background = background;
-  if (text) theme.text = text;
-  if (accent) theme.accent = accent;
-  if (Object.keys(theme).length) Object.assign(c.theme, theme);
-  if (accent) {
-    c.button.bg = accent;
-    c.button.textColor = readableOn(accent);
-  }
+  const fitted = fitContrast(background, text, accent);
+  Object.assign(c.theme, fitted);
+  c.button.bg = fitted.accent;
+  c.button.textColor = readableOn(fitted.accent);
   if (found.fontFamily) c.theme.font = fontFromGuess(found.fontFamily);
   return c;
 }
