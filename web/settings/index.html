@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Settings — FindMySize</title>
+  <link rel="stylesheet" href="/src/settings.css" />
+</head>
+<body>
+  <nav class="nav">
+    <a class="nav-brand" href="/">FindMySize</a>
+    <div class="nav-links">
+      <a href="/">Size</a>
+      <a href="/dashboard/">Dashboard</a>
+    </div>
+  </nav>
+  <main>
+    <h2>Settings</h2>
+    <section id="subscription">
+      <h3>Subscription</h3>
+      <p id="sub-status">Checking…</p>
+      <button id="cancel-sub" hidden>Cancel subscription</button>
+    </section>
+    <section>
+      <button id="logout">Log out</button>
+    </section>
+  </main>
+  <script type="module" src="/src/settings.js"></script>
+</body>
+</html>

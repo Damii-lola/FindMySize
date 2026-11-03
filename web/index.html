@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FindMySize</title>
+  <link rel="stylesheet" href="/src/size-shell.css" />
+</head>
+<body>
+  <nav class="nav">
+    <a class="nav-brand" href="/">FindMySize</a>
+    <div class="nav-links">
+      <a href="/dashboard/">Dashboard</a>
+      <span id="user-menu"></span>
+    </div>
+  </nav>
+  <main id="size-app">
+    <section id="intro">
+      <h1>Get your size</h1>
+      <p class="lead">Record a short video and get measurements for clothing.</p>
+      <button id="start-scan">Start scan</button>
+    </section>
+    <section id="results" hidden>
+      <div id="measurements"></div>
+    </section>
+  </main>
+  <script type="module" src="/src/size.js"></script>
+</body>
+</html>

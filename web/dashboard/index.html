@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard — FindMySize</title>
+  <link rel="stylesheet" href="/src/dashboard.css" />
+</head>
+<body>
+  <nav class="nav">
+    <a class="nav-brand" href="/">FindMySize</a>
+    <div class="nav-links">
+      <a href="/">Size</a>
+      <span id="user-menu"></span>
+    </div>
+  </nav>
+  <main id="dash-app">
+    <section id="dash-in">
+      <h2>Size charts</h2>
+      <form id="chart-form">
+        <input id="chart-name" placeholder="Chart name" required />
+        <button type="submit">Save chart</button>
+      </form>
+      <div id="chart-list"></div>
+    </section>
+  </main>
+  <script type="module" src="/src/dashboard.js"></script>
+</body>
+</html>
