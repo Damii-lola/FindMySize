@@ -99,6 +99,17 @@ meRoutes.get('/', ah(async (req, res) => {
   });
 }));
 
+meRoutes.get('/subscription', ah(async (req, res) => {
+  const access = await isUnlimited(req);
+  res.json({
+    plan: access.unlimited ? 'unlimited' : 'free',
+    status: access.sub?.status || (access.user ? 'inactive' : null),
+    active: access.unlimited,
+    paid_until: access.sub?.paid_until || null,
+    selar_transaction_id: access.sub?.selar_transaction_id || null,
+  });
+}));
+
 meRoutes.post('/subscription/cancel', ah(async (req, res) => {
   const user = requireUser((await isUnlimited(req)).user);
   if (String(user.id).startsWith('dev:')) {

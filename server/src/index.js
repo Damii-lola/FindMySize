@@ -10,6 +10,7 @@ import { supabaseConfigured } from './lib/supabase.js';
 import { bodyScan } from './routes/body-scan.js';
 import { authRoutes } from './routes/auth.js';
 import { payRoutes, meRoutes, usageRoutes, chartRoutes } from './routes/account.js';
+import { websiteRoutes } from './routes/website.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const webRoot = join(__dirname, '../../web/dist');
@@ -62,6 +63,7 @@ app.use('/api/me', meRoutes);
 app.use('/api/usage', usageRoutes);
 app.use('/api/charts', chartRoutes);
 app.use('/api/body-scan', bodyScan);
+app.use('/api/website-analysis', websiteRoutes);
 
 for (const page of ['size', 'dashboard', 'settings', 'auth', 'register', 'registered']) {
   app.get(`/${page}`, (_req, res) => res.redirect(301, `/${page}/`));
