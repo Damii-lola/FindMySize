@@ -98,6 +98,7 @@ function paint(session) {
   // On the account screen itself there is nothing to point at: the form is
   // already the way in.
   inLink.hidden = account || (inLink && inLink.pathname === window.location.pathname);
+  if (inLink) inLink.textContent = 'Log in';
 }
 
 getSession().then(paint).catch(() => paint(null));

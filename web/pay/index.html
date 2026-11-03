@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' https://findmysize.onrender.com https://*.supabase.co; worker-src 'self' blob:; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self' mailto:;" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <meta name="theme-color" content="#f5e9d6" />
+    <title>FindMySize — Activate account</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23f0521f'/%3E%3Cg transform='rotate(45 16 16)'%3E%3Crect x='12.5' y='6' width='7' height='3.2' rx='1' fill='%23fdf7ea'/%3E%3Crect x='12.5' y='9.2' width='7' height='1.4' fill='%23f0521f'/%3E%3Crect x='12.5' y='10.6' width='7' height='12.2' rx='0.6' fill='%23fdf7ea'/%3E%3Cpath d='M12.5 22.8h7L16 28z' fill='%23fdf7ea'/%3E%3Cpath d='M14.9 26.3h2.2L16 28z' fill='%23191411'/%3E%3C/g%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="/src/auth.css" />
+    <link rel="stylesheet" href="/src/theme.css" />
+    <script src="%BASE_URL%theme-init.js"></script>
+  </head>
+  <body>
+    <main class="auth-stage">
+      <div class="auth-card-wrap">
+        <div class="auth-card">
+          <header class="auth-head">
+            <h1>Activate your account</h1>
+            <p class="auth-lead">Create your account, confirm your email, then pay once to unlock unlimited scans and charts.</p>
+          </header>
+
+          <form class="auth-form" id="signup-form" novalidate>
+            <div class="auth-field">
+              <label for="email">Email</label>
+              <input id="email" name="email" type="email" autocomplete="email" required placeholder="you@example.com">
+            </div>
+            <div class="auth-field">
+              <label for="password">Password</label>
+              <input id="password" name="password" type="password" autocomplete="new-password" required minlength="6">
+            </div>
+            <div class="auth-field">
+              <label for="confirm">Confirm password</label>
+              <input id="confirm" name="confirm" type="password" autocomplete="new-password" required>
+            </div>
+            <button class="btn btn--primary btn--block" type="submit">Send code to email</button>
+          </form>
+
+          <form class="auth-form" id="otp-form" hidden novalidate>
+            <div class="auth-field">
+              <label for="otp">Code from email</label>
+              <input id="otp" name="otp" type="text" inputmode="numeric" autocomplete="one-time-code" required placeholder="000000">
+            </div>
+            <button class="btn btn--primary btn--block" type="submit">Confirm code</button>
+          </form>
+
+          <section id="activate-step" hidden>
+            <p class="auth-lead">Email confirmed. Click below to pay and activate unlimited access.</p>
+            <a class="btn btn--primary btn--block" id="activate-btn" href="#">Activate account (pay)</a>
+          </section>
+
+          <p class="status" id="status" role="status"></p>
+        </div>
+      </div>
+    </main>
+
+    <script type="module">
+      const API = (window.location.origin.includes('github.io') ? 'https://findmysize.onrender.com' : window.location.origin) + '/api';
+      const status = document.getElementById('status');
+      const signupForm = document.getElementById('signup-form');
+      const otpForm = document.getElementById('otp-form');
+      const activateStep = document.getElementById('activate-step');
+      const activateBtn = document.getElementById('activate-btn');
+
+      let email = '';
+
+      signupForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        status.textContent = 'Sending code…';
+        const fd = new FormData(signupForm);
+        email = fd.get('email');
+        const res = await fetch(API + '/auth/signup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password: fd.get('password'), confirm: fd.get('confirm') })
+        });
+        const data = await res.json();
+        if (!res.ok) { status.textContent = data.error || 'Failed'; return; }
+        signupForm.hidden = true;
+        otpForm.hidden = false;
+        status.textContent = data.devOtp ? `Dev code: ${data.devOtp}` : 'Check your email for the code';
+      });
+
+      otpForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        status.textContent = 'Confirming…';
+        const otp = new FormData(otpForm).get('otp');
+        const res = await fetch(API + '/auth/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, otp })
+        });
+        const data = await res.json();
+        if (!res.ok) { status.textContent = data.error || 'Wrong code'; return; }
+        otpForm.hidden = true;
+        activateStep.hidden = false;
+        // Fetch selar url from config or hardcode placeholder; in real use from /api/me or public-config
+        const cfg = await fetch(API + '/public-config').then(r => r.json()).catch(() => ({}));
+        const checkout = cfg.selarCheckoutUrl || 'https://selar.co/your-checkout';
+        activateBtn.href = checkout + (checkout.includes('?') ? '&' : '?') + 'email=' + encodeURIComponent(email);
+        status.textContent = 'Ready to pay';
+      });
+    </script>
+  </body>
+</html>

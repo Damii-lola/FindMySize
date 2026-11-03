@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' https://findmysize.onrender.com https://*.supabase.co; worker-src 'self' blob:; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self' mailto:;" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <meta name="theme-color" content="#f5e9d6" />
+    <title>FindMySize — Activate account</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23f0521f'/%3E%3Cg transform='rotate(45 16 16)'%3E%3Crect x='12.5' y='6' width='7' height='3.2' rx='1' fill='%23fdf7ea'/%3E%3Crect x='12.5' y='9.2' width='7' height='1.4' fill='%23f0521f'/%3E%3Crect x='12.5' y='10.6' width='7' height='12.2' rx='0.6' fill='%23fdf7ea'/%3E%3Cpath d='M12.5 22.8h7L16 28z' fill='%23fdf7ea'/%3E%3Cpath d='M14.9 26.3h2.2L16 28z' fill='%23191411'/%3E%3C/g%3E%3C/svg%3E" />
+    <script src="/FindMySize/theme-init.js"></script>
+    <script type="module" crossorigin src="/FindMySize/assets/pay-CBJjHL4V.js"></script>
+    <link rel="modulepreload" crossorigin href="/FindMySize/assets/modulepreload-polyfill-B5Qt9EMX.js">
+    <link rel="stylesheet" crossorigin href="/FindMySize/assets/auth-CAE-0p9E.css">
+    <link rel="stylesheet" crossorigin href="/FindMySize/assets/theme-B_KWcFXd.css">
+  </head>
+  <body>
+    <main class="auth-stage">
+      <div class="auth-card-wrap">
+        <div class="auth-card">
+          <header class="auth-head">
+            <h1>Activate your account</h1>
+            <p class="auth-lead">Create your account, confirm your email, then pay once to unlock unlimited scans and charts.</p>
+          </header>
+
+          <form class="auth-form" id="signup-form" novalidate>
+            <div class="auth-field">
+              <label for="email">Email</label>
+              <input id="email" name="email" type="email" autocomplete="email" required placeholder="you@example.com">
+            </div>
+            <div class="auth-field">
+              <label for="password">Password</label>
+              <input id="password" name="password" type="password" autocomplete="new-password" required minlength="6">
+            </div>
+            <div class="auth-field">
+              <label for="confirm">Confirm password</label>
+              <input id="confirm" name="confirm" type="password" autocomplete="new-password" required>
+            </div>
+            <button class="btn btn--primary btn--block" type="submit">Send code to email</button>
+          </form>
+
+          <form class="auth-form" id="otp-form" hidden novalidate>
+            <div class="auth-field">
+              <label for="otp">Code from email</label>
+              <input id="otp" name="otp" type="text" inputmode="numeric" autocomplete="one-time-code" required placeholder="000000">
+            </div>
+            <button class="btn btn--primary btn--block" type="submit">Confirm code</button>
+          </form>
+
+          <section id="activate-step" hidden>
+            <p class="auth-lead">Email confirmed. Click below to pay and activate unlimited access.</p>
+            <a class="btn btn--primary btn--block" id="activate-btn" href="#">Activate account (pay)</a>
+          </section>
+
+          <p class="status" id="status" role="status"></p>
+        </div>
+      </div>
+    </main>
+
+  </body>
+</html>

@@ -14,15 +14,13 @@ export default defineConfig({
     chunkSizeWarningLimit: 900,
     rollupOptions: {
       input: {
-        landing: page('index.html'),
-        auth: page('auth/index.html'),
+        // Home is the size page
         size: page('size/index.html'),
-        pricing: page('pricing/index.html'),
         dashboard: page('dashboard/index.html'),
         settings: page('settings/index.html'),
-        shop: page('shop/index.html'),
-        privacy: page('privacy/index.html'),
-        terms: page('terms/index.html'),
+        auth: page('auth/index.html'),
+        pay: page('pay/index.html'),
+        paid: page('paid/index.html'),
       },
       output: { manualChunks: { three: ['three'], supabase: ['@supabase/supabase-js'] } },
     },

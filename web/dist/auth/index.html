@@ -11,7 +11,7 @@
     <meta name="theme-color" content="#f5e9d6" />
     <title>FindMySize — Your account</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23f0521f'/%3E%3Cg transform='rotate(45 16 16)'%3E%3Crect x='12.5' y='6' width='7' height='3.2' rx='1' fill='%23fdf7ea'/%3E%3Crect x='12.5' y='9.2' width='7' height='1.4' fill='%23f0521f'/%3E%3Crect x='12.5' y='10.6' width='7' height='12.2' rx='0.6' fill='%23fdf7ea'/%3E%3Cpath d='M12.5 22.8h7L16 28z' fill='%23fdf7ea'/%3E%3Cpath d='M14.9 26.3h2.2L16 28z' fill='%23191411'/%3E%3C/g%3E%3C/svg%3E" />
-    <script src="/theme-init.js"></script>
+    <script src="/FindMySize/theme-init.js"></script>
     <noscript>
       <style>
         .nav { display: flex !important; flex-wrap: wrap; gap: 12px; }
@@ -31,19 +31,19 @@
 .pw-eye:hover { color: #f0521f; }
 .pw-eye svg { width: 1.2rem; height: 1.2rem; stroke: currentColor; fill: none; stroke-width: 1.8; }
 </style>
-  <script type="module" crossorigin src="/assets/auth-DIn1AO9n.js"></script>
-  <link rel="modulepreload" crossorigin href="/assets/modulepreload-polyfill-B5Qt9EMX.js">
-  <link rel="modulepreload" crossorigin href="/assets/api-BPp_27zP.js">
-  <link rel="modulepreload" crossorigin href="/assets/nav-uAF0Yitn.js">
-  <link rel="stylesheet" crossorigin href="/assets/auth-CLFTmMrP.css">
-  <link rel="stylesheet" crossorigin href="/assets/theme-B_KWcFXd.css">
+  <script type="module" crossorigin src="/FindMySize/assets/auth-C3TIXbDE.js"></script>
+  <link rel="modulepreload" crossorigin href="/FindMySize/assets/modulepreload-polyfill-B5Qt9EMX.js">
+  <link rel="modulepreload" crossorigin href="/FindMySize/assets/api-DgAX437z.js">
+  <link rel="modulepreload" crossorigin href="/FindMySize/assets/nav-BpODCmgB.js">
+  <link rel="stylesheet" crossorigin href="/FindMySize/assets/auth-CAE-0p9E.css">
+  <link rel="stylesheet" crossorigin href="/FindMySize/assets/theme-B_KWcFXd.css">
 </head>
   <body id="top" class="auth-page">
   <a class="skip" href="#main">Skip to content</a>
 
   <header class="topbar">
     <div class="shell topbar-inner">
-      <a class="brand" href="/" aria-label="FindMySize — home">
+      <a class="brand" href="/FindMySize/" aria-label="FindMySize — home">
         <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
           <rect width="32" height="32" rx="9" fill="#f0521f"/>
           <g transform="rotate(45 16 16)">
@@ -60,14 +60,14 @@
       <!-- ids below are the ones nav.js drives: current page, the account panel
            (Settings + Log out when signed in, "Log in or sign up" when not) and the menu -->
       <nav class="nav" id="nav-links" aria-label="Primary">
-        <a class="nav-link" href="/">Home</a>
-        <a class="nav-link" href="/size/">Sizing</a>
-        <a class="nav-link" href="/dashboard/">Dashboard</a>
-        <a class="nav-link" href="/pricing/">Pricing</a>
-        <a class="btn btn--primary nav-demo" href="/dashboard/">Open the dashboard</a>
+        <a class="nav-link" href="/FindMySize/">Home</a>
+        <a class="nav-link" href="/FindMySize/size/">Sizing</a>
+        <a class="nav-link" href="/FindMySize/dashboard/">Dashboard</a>
+        <a class="nav-link" href="/FindMySize/pricing/">Pricing</a>
+        <a class="btn btn--primary nav-demo" href="/FindMySize/dashboard/">Open the dashboard</a>
       </nav>
 
-      <a class="btn btn--ghost btn--small topbar-cta" href="/dashboard/">
+      <a class="btn btn--ghost btn--small topbar-cta" href="/FindMySize/dashboard/">
         Dashboard
         <svg class="od-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h15M13 6l6 6-6 6"/></svg>
       </a>
@@ -86,8 +86,8 @@
 
       <div class="account" id="nav-account" hidden>
         <p class="account-note" id="nav-account-note"></p>
-        <a class="account-item" id="nav-account-settings" href="/settings/" hidden>Settings</a>
-        <a class="account-item" id="nav-account-in" href="/auth/">Log in or sign up</a>
+        <a class="account-item" id="nav-account-settings" href="/FindMySize/settings/" hidden>Settings</a>
+        <a class="account-item" id="nav-account-in" href="/FindMySize/auth/">Log in or sign up</a>
         <button class="account-item" id="nav-account-out" type="button" hidden>Log out</button>
       </div>
     </div>
@@ -343,10 +343,10 @@
       </span>
       <p class="footer-note">Fit, answered before checkout.</p>
       <nav class="footer-nav" aria-label="Footer">
-        <a href="/">Home</a>
-        <a href="/size/">Sizing</a>
-        <a href="/dashboard/">Dashboard</a>
-        <a href="/pricing/">Pricing</a>
+        <a href="/FindMySize/">Home</a>
+        <a href="/FindMySize/size/">Sizing</a>
+        <a href="/FindMySize/dashboard/">Dashboard</a>
+        <a href="/FindMySize/pricing/">Pricing</a>
       </nav>
       <span class="footer-copy">&copy; 2026 FindMySize</span>
     </div>
