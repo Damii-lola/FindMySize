@@ -25,12 +25,14 @@
       .sizes span { display: grid; place-items: center; width: 46px; height: 46px; border: 1px solid #cfcabf; border-radius: 4px; background: #fff; font-size: 14px; }
       #inline-slot { margin: 0 0 18px; min-height: 8px; }
       .buy { display: block; width: 100%; padding: 15px; border: 0; border-radius: 4px; background: #1f1d1a; color: #fff; font: 600 15px system-ui, sans-serif; }
+      .fms-preview-btn { display: inline-flex; align-items: center; gap: 8px; margin: 0 0 14px; padding: 12px 18px; border: 0; border-radius: 13px; background: #ff6a4a; color: #fff; font: 650 15px/1.2 system-ui, sans-serif; box-shadow: 0 10px 24px rgba(0,0,0,.18); }
+      .threeDG-float { position: fixed; right: 18px; bottom: 18px; z-index: 50; }
       p.copy { margin: 22px 0 0; font-size: 14px; line-height: 1.6; color: #6b665d; }
       @media (max-width: 720px) { main { grid-template-columns: minmax(0, 1fr); padding: 20px 16px 120px; } header { padding: 14px 16px; } header nav { display: none; } }
     </style>
-    <script type="module" crossorigin src="/FindMySize/assets/shop-CYQTBA-M.js"></script>
+    <script type="module" crossorigin src="/FindMySize/assets/shop-ZOmlm0TZ.js"></script>
     <link rel="modulepreload" crossorigin href="/FindMySize/assets/modulepreload-polyfill-B5Qt9EMX.js">
-    <link rel="modulepreload" crossorigin href="/FindMySize/assets/popup-config-BzOk8vTg.js">
+    <link rel="modulepreload" crossorigin href="/FindMySize/assets/popup-config-BgGFR7T6.js">
   </head>
   <body>
     <header><b>YOUR STORE</b><nav><span>New in</span><span>Shop</span><span>About</span></nav></header>
@@ -43,8 +45,9 @@
         <p class="price">$68.00</p>
         <p class="label">Size</p>
         <div class="sizes" aria-hidden="true"><span>XS</span><span>S</span><span>M</span><span>L</span><span>XL</span></div>
-        <!-- where a button pinned inline (data-float="0") would sit -->
-        <div id="inline-slot"></div>
+        <div id="inline-slot">
+          <button class="fms-preview-btn" id="fms-inline" type="button">Find My Size</button>
+        </div>
         <button class="buy" type="button" tabindex="-1">Add to bag</button>
         <p class="copy">This is what your shoppers see. The FindMySize button opens the size finder over your page.</p>
       </div>
