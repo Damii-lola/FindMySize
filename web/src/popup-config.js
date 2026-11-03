@@ -359,23 +359,25 @@ export function fontFromGuess(guess) {
   return 'default';
 }
 
-/** What the website analysis found, as settings. Anything not usable is left as it was. */
+/** What the website analysis found, as a designed look — not the site's raw colours. */
 export function fromAnalysis(c, found) {
-  const accent = hex6(found.primaryColor) || hex6(found.accentColor);
-  const background = hex6(found.backgroundColor);
-  const text = hex6(found.textColor);
-  if (background) c.theme.background = background;
-  if (text) c.theme.text = text;
-  if (accent) {
-    c.theme.accent = accent;
-    c.button.bg = accent;
-    c.button.textColor = readableOn(accent);
-  }
-  const rem = Number(found.borderRadius);
-  if (Number.isFinite(rem)) {
-    c.theme.radius = Math.min(40, Math.max(0, Math.round(rem * 16)));
-    c.button.radius = Math.min(32, Math.max(0, Math.round((Number(found.buttonRadius) || rem * 0.8) * 16)));
-  }
+  const brand = hex6(found.primaryColor) || hex6(found.accentColor) || hex6(found.accent);
+  if (!brand) return c;
+
+  // A pale brand colour on a pale card looks flat. Deepen the ground, keep the
+  // brand as the light, and force text that can be read on that ground.
+  const deep = mix(brand, '#0c0a09', 0.72);
+  const glow = mix(brand, '#ffffff', luminance(brand) < 0.25 ? 0.35 : 0.12);
+  const ink = readableOn(deep);
+
+  c.theme.background = deep;
+  c.theme.text = ink;
+  c.theme.accent = glow;
+  c.theme.radius = Math.max(c.theme.radius || 0, 28);
+  c.button.bg = glow;
+  c.button.textColor = readableOn(glow);
+  c.button.radius = Math.max(c.button.radius || 0, 16);
+
   if (found.fontFamily) c.theme.font = fontFromGuess(found.fontFamily);
   return c;
 }
