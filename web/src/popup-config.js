@@ -360,41 +360,24 @@ export function fontFromGuess(guess) {
 }
 
 /**
- * Nudge a matched palette until it can be read.
- * Text must clear the ground. The accent must not sit on top of the ground
- * or the text — that is the "hidden" look. Small moves only; the brand stays.
+ * A Look preset is a dark ground and a bright accent. That gap is the gradient.
+ * A match has to make the same pair, or the wash has nothing to show against.
  */
 function fitContrast(background, text, accent) {
-  let ground = background || '#221a15';
-  let ink = text || readableOn(ground);
-  let mark = accent || '#f0521f';
-
-  // A mid ground swallows both the wash and the type. Push it to a clear side.
-  const gl = luminance(ground);
-  if (gl > 0.35 && gl < 0.75) ground = mix(ground, '#14110e', 0.55);
-
-  if (contrast(ink, ground) < 4.5) ink = readableOn(ground);
-  // Still close: step the ink further from the ground.
-  if (contrast(ink, ground) < 5.5) {
-    ink = luminance(ground) > 0.4 ? mix(ink, '#0c0a09', 0.35) : mix(ink, '#ffffff', 0.18);
-  }
-
-  // Accent too close to the ground, or to the text, so it vanishes in the wash.
-  if (contrast(mark, ground) < 2.4) {
-    mark = luminance(ground) > 0.4 ? mix(mark, '#0c0a09', 0.4) : mix(mark, '#ffffff', 0.28);
-  }
-  if (contrast(mark, ink) < 2) {
-    mark = mix(mark, luminance(ground) > 0.4 ? '#ffffff' : '#0c0a09', 0.25);
-  }
+  const brand = accent || background || '#f0521f';
+  // Deep ground, the way Midnight / Forest / Plum are deep. Never a flat mid colour.
+  const ground = mix(brand, '#0b0908', 0.78);
+  // Accent stays the brand, lifted if it would disappear on that ground.
+  let mark = brand;
+  if (contrast(mark, ground) < 3) mark = mix(brand, '#ffffff', 0.35);
+  const ink = '#f6f1e8';
   return { background: ground, text: ink, accent: mark };
 }
 
-/** Apply a site's colours the same way a Look preset does, then clear them for reading. */
+/** Apply a site's brand the same way a Look preset is applied. */
 export function fromAnalysis(c, found) {
-  const accent = hex6(found.primaryColor) || hex6(found.accentColor);
-  const background = hex6(found.backgroundColor);
-  const text = hex6(found.textColor);
-  const fitted = fitContrast(background, text, accent);
+  const accent = hex6(found.primaryColor) || hex6(found.accentColor) || hex6(found.backgroundColor);
+  const fitted = fitContrast(null, null, accent);
   Object.assign(c.theme, fitted);
   c.button.bg = fitted.accent;
   c.button.textColor = readableOn(fitted.accent);
