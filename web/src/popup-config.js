@@ -360,18 +360,16 @@ export function fontFromGuess(guess) {
 }
 
 /**
- * A Look preset is a dark ground and a bright accent. That gap is the gradient.
- * A match has to make the same pair, or the wash has nothing to show against.
+ * Same pairing the Look presets use. Clean is a light ground with a dark accent.
+ * Plum is a dark ground with a bright accent. The wash only shows when those differ.
  */
-function fitContrast(background, text, accent) {
-  const brand = accent || background || '#f0521f';
-  // Deep ground, the way Midnight / Forest / Plum are deep. Never a flat mid colour.
-  const ground = mix(brand, '#0b0908', 0.78);
-  // Accent stays the brand, lifted if it would disappear on that ground.
-  let mark = brand;
-  if (contrast(mark, ground) < 3) mark = mix(brand, '#ffffff', 0.35);
-  const ink = '#f6f1e8';
-  return { background: ground, text: ink, accent: mark };
+function fitContrast(_background, _text, accent) {
+  const brand = accent || '#f0521f';
+  const light = luminance(brand) > 0.45;
+  if (light) {
+    return { background: '#f7f4ef', text: '#191411', accent: mix(brand, '#3a2418', 0.35) };
+  }
+  return { background: mix(brand, '#120e12', 0.72), text: '#f4efe6', accent: mix(brand, '#ffffff', 0.22) };
 }
 
 /** Apply a site's brand the same way a Look preset is applied. */

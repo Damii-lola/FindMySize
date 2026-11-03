@@ -186,9 +186,8 @@ body.app .stage {
   text-align: left;
   border-radius: var(--pu-radius, 28px);
   background:
-    radial-gradient(120% 70% at 50% -15%, color-mix(in srgb, var(--pu-accent, #f0521f) 70%, transparent), transparent 55%),
-    radial-gradient(70% 50% at 110% 110%, color-mix(in srgb, var(--pu-accent, #f0521f) 28%, transparent), transparent 60%),
-    linear-gradient(180deg, color-mix(in srgb, var(--pu-bg, #221a15) 55%, var(--pu-accent, #f0521f)) 0%, var(--pu-bg, #221a15) 38%, #0c0a09 100%);
+    radial-gradient(90% 55% at 50% 0%, color-mix(in srgb, var(--pu-accent, #f0521f) 28%, transparent), transparent 70%),
+    var(--pu-bg, #221a15);
   color: var(--pu-text, #f5e9d6);
   font-family: var(--pu-body, "Instrument Sans Variable", "Instrument Sans", ui-sans-serif, system-ui, sans-serif);
 }
