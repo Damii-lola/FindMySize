@@ -382,18 +382,22 @@ export async function checkChartColumns(labels) {
     .map((v) => v.trim())
     .filter(Boolean)
     .slice(0, 12);
-  if (!names.length) return { ok: true, skipped: true };
+  if (!names.length) return { ok: true };
 
   const vague = names.find((name) => VAGUE_LABELS.has(name.toLowerCase()));
   if (vague) {
     return {
       ok: false,
-      problem: `"${vague}" does not say what it measures \u2014 try "body length" or "sleeve length".`,
+      problem: `"${vague}" does not say what it measures — try "body length" or "sleeve length".`,
     };
   }
+  const tooShort = names.find((name) => name.length < 2);
+  if (tooShort) return { ok: false, problem: `"${tooShort}" is too short to be a measurement name.` };
 
-  if (!cloudflareConfigured()) return { ok: true, skipped: true };
+  // Local check is enough to accept a chart. The AI is a second opinion only.
+  if (!cloudflareConfigured()) return { ok: true };
   const model = config.cloudflare.textModel || config.cloudflare.visionModel;
+  if (!model) return { ok: true };
   const prompt = `You review the column names of a clothing size chart. Every name must be spelt correctly and say what it measures, such as Chest, Waist, Hips, Shoulder, Sleeve length, Body length or Inseam. A name that is misspelt, or too vague to tell what is being measured, is a problem. Reply with ONLY compact JSON: {"ok":true} when all names are clear, or {"ok":false,"problem":"one short sentence naming the faulty column and a better name"}. Names: ${JSON.stringify(names)}`;
   try {
     const result = await runModel(model, {
@@ -408,13 +412,12 @@ export async function checkChartColumns(labels) {
     if (raw.ok === false || raw.ok === 'false') {
       const problem = typeof raw.problem === 'string' && raw.problem.trim()
         ? raw.problem.trim().slice(0, 200)
-        : 'One column name is unclear \u2014 say what it measures.';
+        : 'One column name is unclear — say what it measures.';
       return { ok: false, problem };
     }
-    if (raw.ok === true || raw.ok === 'true') return { ok: true };
-    return { ok: true, skipped: true };
+    return { ok: true };
   } catch {
-    return { ok: true, skipped: true };
+    return { ok: true };
   }
 }
 
