@@ -284,27 +284,31 @@ export function openPopupEditor({ chart, siteUrl, onSave, toast }) {
 
   /* ---- match my website (the AI) ---- */
   function websiteControls() {
-    const urlInput = el('input', { class: 'pe-input', type: 'url', placeholder: 'https://your-store.com', autocomplete: 'off' });
-    const go = el('button', { class: 'btn btn--ghost btn--small', type: 'button', text: 'Match my site' });
-    go.addEventListener('click', async () => {
-      const url = urlInput.value.trim();
+    const urlInput = el('input', { class: 'pe-input', type: 'url', placeholder: 'yourstore.com', autocomplete: 'off' });
+    const go = el('button', { class: 'btn btn--primary btn--small', type: 'button', text: 'Match my site' });
+    const run = async () => {
+      let url = urlInput.value.trim();
       if (!url) { toast('Enter your homepage address first.', 'error'); return; }
+      if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
+      urlInput.value = url;
       go.disabled = true;
       go.textContent = 'Reading your site…';
       try {
         const found = await api('/api/website-analysis/analyze', { method: 'POST', body: { url } });
-        if (!found) throw new Error('No answer came back.');
+        if (!found?.primaryColor && !found?.accentColor) throw new Error('No colours came back from that site.');
         edit((c) => fromAnalysis(c, found), { rebuild: true });
-        toast('Colours and type taken from your site. Adjust anything you like.', 'ok');
+        toast('Colours taken from your site. Adjust anything you like.', 'ok');
       } catch (err) {
         toast(err.message || 'Could not read that site.', 'error');
       } finally {
         go.disabled = false;
         go.textContent = 'Match my site';
       }
-    });
+    };
+    go.addEventListener('click', run);
+    urlInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); run(); } });
     return [
-      field('Your homepage', urlInput, 'We read its colours and type and set the popup and button to suit. You can change anything afterwards.'),
+      field('Your homepage', urlInput, 'Paste your store address. We read its colours and set the popup to match.'),
       el('div', { class: 'pe-row' }, go),
     ];
   }
@@ -326,7 +330,7 @@ export function openPopupEditor({ chart, siteUrl, onSave, toast }) {
         onReset: () => edit((c) => { c.theme = { ...DEFAULTS.theme }; }, { rebuild: true }),
         resetLabel: 'Reset',
       }),
-      section('Match my website', websiteControls(), { open: false }),
+      section('Match my website', websiteControls(), { open: true }),
     );
     side.scrollTop = scroll;
   }
