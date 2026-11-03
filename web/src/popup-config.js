@@ -359,25 +359,20 @@ export function fontFromGuess(guess) {
   return 'default';
 }
 
-/** What the website analysis found, as a designed look — not the site's raw colours. */
+/** Apply a site's colours the same way a Look preset does: background, text, accent. */
 export function fromAnalysis(c, found) {
-  const brand = hex6(found.primaryColor) || hex6(found.accentColor) || hex6(found.accent);
-  if (!brand) return c;
-
-  // A pale brand colour on a pale card looks flat. Deepen the ground, keep the
-  // brand as the light, and force text that can be read on that ground.
-  const deep = mix(brand, '#0c0a09', 0.72);
-  const glow = mix(brand, '#ffffff', luminance(brand) < 0.25 ? 0.35 : 0.12);
-  const ink = readableOn(deep);
-
-  c.theme.background = deep;
-  c.theme.text = ink;
-  c.theme.accent = glow;
-  c.theme.radius = Math.max(c.theme.radius || 0, 28);
-  c.button.bg = glow;
-  c.button.textColor = readableOn(glow);
-  c.button.radius = Math.max(c.button.radius || 0, 16);
-
+  const accent = hex6(found.primaryColor) || hex6(found.accentColor);
+  const background = hex6(found.backgroundColor);
+  const text = hex6(found.textColor);
+  const theme = {};
+  if (background) theme.background = background;
+  if (text) theme.text = text;
+  if (accent) theme.accent = accent;
+  if (Object.keys(theme).length) Object.assign(c.theme, theme);
+  if (accent) {
+    c.button.bg = accent;
+    c.button.textColor = readableOn(accent);
+  }
   if (found.fontFamily) c.theme.font = fontFromGuess(found.fontFamily);
   return c;
 }

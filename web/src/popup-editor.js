@@ -325,12 +325,12 @@ export function openPopupEditor({ chart, siteUrl, onSave, toast }) {
     };
     side.replaceChildren(
       el('p', { class: 'pe-phase-hint', text: PHASES[phase].hint }),
+      section('Match my website', websiteControls(), { open: true }),
       section(phase === 0 ? 'The button' : phase === 1 ? 'The record screen' : 'The results screen', phaseBody, { onReset: phaseReset, resetLabel: 'Reset' }),
       section('Look of the popup', lookControls(), {
         onReset: () => edit((c) => { c.theme = { ...DEFAULTS.theme }; }, { rebuild: true }),
         resetLabel: 'Reset',
       }),
-      section('Match my website', websiteControls(), { open: true }),
     );
     side.scrollTop = scroll;
   }
