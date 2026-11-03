@@ -30,6 +30,30 @@
  */
 import { measureField } from '../shared/measures.js';
 
+/** A cell is a number, or a range { min, max } written as "from this to this". */
+function readCell(value) {
+  if (value && Number.isFinite(value.min) && Number.isFinite(value.max)) {
+    return { min: Math.min(value.min, value.max), max: Math.max(value.min, value.max) };
+  }
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function hasCell(value) {
+  return readCell(value) !== null;
+}
+
+/** Distance from a body measurement to a chart cell. Inside a range is a perfect fit. */
+function distanceTo(measured, cell) {
+  if (typeof cell === 'number') return Math.abs(measured - cell);
+  if (measured >= cell.min && measured <= cell.max) return 0;
+  return measured < cell.min ? cell.min - measured : measured - cell.max;
+}
+
+function cellSortKey(cell) {
+  return typeof cell === 'number' ? cell : cell.max;
+}
+
 export const CHARTS = {
   male: {
     XS: { chest: 32, waist: 26, hips: 34, height: 66 },
@@ -115,7 +139,7 @@ export function bestSize(sex, girths, chart = CHARTS[sex], columns = null) {
   if (!primary) return null;
   const usable = cols.filter((c) => c.field
     && Number.isFinite(girths?.[c.field])
-    && entries.every(([, row]) => Number.isFinite(row?.[c.id])));
+    && entries.every(([, row]) => hasCell(row?.[c.id])));
   // The column a size is decided on has to be this body's own tape. Without it
   // there is no anchor to lay the table against, and no size beats a guessed one.
   if (!usable.includes(primary)) return null;
@@ -126,11 +150,15 @@ export function bestSize(sex, girths, chart = CHARTS[sex], columns = null) {
   const onChart = (c) => (c.flat ? girths[c.field] / 2 : girths[c.field]);
   let best = null;
   for (const [sizeKey, row] of entries) {
-    if (!Number.isFinite(row?.[primary.id])) continue;
-    const anchor = Math.abs(onChart(primary) - row[primary.id]);
-    const worst = usable.reduce((m, c) => Math.max(m, Math.abs(onChart(c) - row[c.id])), anchor);
+    const primaryCell = readCell(row?.[primary.id]);
+    if (!primaryCell) continue;
+    const anchor = distanceTo(onChart(primary), primaryCell);
+    const worst = usable.reduce((m, c) => {
+      const cell = readCell(row?.[c.id]);
+      return cell ? Math.max(m, distanceTo(onChart(c), cell)) : m;
+    }, anchor);
     if (!best || worst < best.misfit
-      || (worst === best.misfit && Number(row[primary.id]) > Number(best.row[primary.id]))) {
+      || (worst === best.misfit && cellSortKey(primaryCell) > cellSortKey(readCell(best.row[primary.id])))) {
       best = { sizeKey, row, key: primary.id, field: primary.field, label: primary.label, diff: anchor, misfit: worst, flat: Boolean(primary.flat) };
     }
   }
@@ -189,20 +217,30 @@ export function chartFromInput(input) {
     if (!label || out[label]) continue;
     const r = {};
     for (const c of columns) {
-      const n = Number(row?.[c.id]);
-      if (!Number.isFinite(n) || String(row?.[c.id]).trim() === '') continue;
-      const inch = cm ? n / 2.54 : n;
-      if (inch >= 5 && inch <= 120) r[c.id] = Math.round(inch * 10) / 10;
+      const cell = readCell(row?.[c.id]);
+      if (!cell) continue;
+      const toInch = (n) => {
+        const inch = cm ? n / 2.54 : n;
+        return inch >= 5 && inch <= 120 ? Math.round(inch * 10) / 10 : null;
+      };
+      if (typeof cell === 'number') {
+        const inch = toInch(cell);
+        if (inch !== null) r[c.id] = inch;
+      } else {
+        const min = toInch(cell.min);
+        const max = toInch(cell.max);
+        if (min !== null && max !== null) r[c.id] = { min, max };
+      }
     }
     out[label] = r;
   }
 
-  const kept = columns.filter((c) => Object.values(out).some((r) => Number.isFinite(r?.[c.id])));
+  const kept = columns.filter((c) => Object.values(out).some((r) => hasCell(r?.[c.id])));
   const anchor = kept.find((c) => c.measure);
   if (!anchor) return null;
   // A size with no number in the deciding column cannot be laid against anything.
   for (const [label, r] of Object.entries(out)) {
-    if (!Number.isFinite(r[anchor.id])) delete out[label];
+    if (!hasCell(r[anchor.id])) delete out[label];
   }
   if (!Object.keys(out).length) return null;
   markFlatColumns(kept, out);

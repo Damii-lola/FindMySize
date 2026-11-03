@@ -159,6 +159,31 @@ function input(className, { value = '', placeholder = '', label, mode = 'decimal
   return el;
 }
 
+/** A single number, or a range written with a dash: "34-36" means from 34 to 36. */
+function parseMeasure(raw) {
+  const text = String(raw || '').trim().replace(/[–—]/g, '-');
+  if (!text) return null;
+  const range = text.match(/^(\d+(?:\.\d+)?)\s*-\s*(\d+(?:\.\d+)?)$/);
+  if (range) {
+    const min = Number(range[1]);
+    const max = Number(range[2]);
+    if (!Number.isFinite(min) || !Number.isFinite(max) || max < min) return null;
+    return { min, max };
+  }
+  const value = Number(text);
+  return Number.isFinite(value) ? { value } : null;
+}
+
+function isFilled(v) {
+  return Number.isFinite(v) || (v && Number.isFinite(v.min) && Number.isFinite(v.max));
+}
+
+function cellText(value) {
+  if (value && Number.isFinite(value.min) && Number.isFinite(value.max)) return `${value.min}-${value.max}`;
+  if (value === 0 || value) return String(value);
+  return '';
+}
+
 function deleteButton(what, onClick) {
   const del = document.createElement('button');
   del.type = 'button';
@@ -248,8 +273,8 @@ function addRow({ key = '', values = {} } = {}) {
   row.append(input('chart-key', { value: key, placeholder: 'M', label: 'Size name', mode: null }));
   for (const column of columns) {
     const cell = input('chart-num', {
-      value: values[column.id] === 0 || values[column.id] ? String(values[column.id]) : '',
-      placeholder: '\u2014',
+      value: cellText(values[column.id]),
+      placeholder: '34 or 34-36',
       label: `${column.label.trim() || 'Column'} for this size`,
     });
     cell.dataset.col = column.id;
@@ -326,13 +351,15 @@ function readForm() {
     for (const cell of cells) {
       const raw = cell.value.trim();
       if (raw === '') continue;
-      const value = Number(raw);
+      const parsed = parseMeasure(raw);
       const column = columns.find((c) => c.id === cell.dataset.col);
-      if (!Number.isFinite(value) || value < lo || value > hi) {
-        problems.push(`${key}: "${raw}" is not a measurement${column?.label ? ` for ${column.label}` : ''} in ${unit === 'cm' ? 'centimetres' : 'inches'}.`);
+      if (!parsed
+        || (parsed.value !== undefined && (parsed.value < lo || parsed.value > hi))
+        || (parsed.min !== undefined && (parsed.min < lo || parsed.max > hi))) {
+        problems.push(`${key}: "${raw}" is not a measurement${column?.label ? ` for ${column.label}` : ''} in ${unit === 'cm' ? 'centimetres' : 'inches'}. Use a number, or a range like 34-36.`);
         continue;
       }
-      entry[cell.dataset.col] = value;
+      entry[cell.dataset.col] = parsed.min !== undefined ? { min: parsed.min, max: parsed.max } : parsed.value;
     }
     rows.push(entry);
   }
@@ -344,7 +371,7 @@ function readForm() {
     problems.push('Add a column this app can measure \u2014 it is the one a size is decided on.');
   } else if (rows.length) {
     const name = anchor.label.trim() || 'number';
-    const missing = rows.filter((r) => !Number.isFinite(r[anchor.id])).map((r) => r.key);
+    const missing = rows.filter((r) => !isFilled(r[anchor.id])).map((r) => r.key);
     if (missing.length) {
       // Reported together, once: the fix is the same for all of them, and a shop
       // with five half-typed rows should not have to press Save five times.
@@ -357,7 +384,7 @@ function readForm() {
     // store wondering why the column never moved the answer.
     for (const c of columns) {
       if (c === anchor) continue;
-      const have = rows.filter((r) => Number.isFinite(r[c.id])).length;
+      const have = rows.filter((r) => isFilled(r[c.id])).length;
       if (have && have < rows.length) {
         problems.push(`${c.label.trim() || 'One column'} is filled for ${have} of ${rows.length} sizes \u2014 fill it for every size, or remove the column.`);
       }
