@@ -69,10 +69,13 @@ app.use('/api/charts', chartRoutes);
 app.use('/api/body-scan', bodyScan);
 app.use('/api/website-analysis', websiteRoutes);
 
+app.get('/api/chart-check', (_req, res) => {
+  res.json({ ok: true, method: 'POST', hint: 'Send a POST with { labels: ["Chest", "Waist"] }.' });
+});
 app.post('/api/chart-check', ah(async (req, res) => {
   const labels = Array.isArray(req.body?.labels) ? req.body.labels : [];
   const result = await checkChartColumns(labels);
-  res.json(result || { ok: true, skipped: true });
+  res.json(result || { ok: true });
 }));
 
 for (const page of ['size', 'dashboard', 'settings', 'auth', 'register', 'registered']) {

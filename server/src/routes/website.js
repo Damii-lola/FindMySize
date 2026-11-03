@@ -87,6 +87,10 @@ async function readPage(url) {
 }
 
 /** Read a store's homepage and pull colours the popup can copy. */
+websiteRoutes.get('/analyze', (_req, res) => {
+  res.json({ ok: true, method: 'POST', hint: 'Send a POST with { url: "https://your-store.com" }.' });
+});
+
 websiteRoutes.post('/analyze', ah(async (req, res) => {
   const url = String(req.body?.url || '').trim();
   if (!/^https?:\/\//i.test(url)) throw new HttpError(400, 'Enter a full address, starting with https://');
