@@ -1,6 +1,3 @@
-import { canScan, recordScan, isLoggedIn } from "./limits.js";
-import { mountUserMenu } from "./user-menu.js";
-mountUserMenu();
 /**
  * /size — the scanner, behind an account.
  *

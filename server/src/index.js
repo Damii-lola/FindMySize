@@ -12,7 +12,7 @@ import { authRoutes } from './routes/auth.js';
 import { payRoutes, meRoutes, usageRoutes, chartRoutes } from './routes/account.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const webRoot = join(__dirname, '../../web');
+const webRoot = join(__dirname, '../../web/dist');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -62,9 +62,12 @@ app.use('/api/usage', usageRoutes);
 app.use('/api/charts', chartRoutes);
 app.use('/api/body-scan', bodyScan);
 
-for (const page of ['dashboard', 'settings', 'login', 'pay', 'paid']) {
+for (const page of ['size', 'dashboard', 'settings', 'auth', 'pricing', 'shop', 'privacy', 'terms']) {
   app.get(`/${page}`, (_req, res) => res.redirect(301, `/${page}/`));
 }
+app.get('/login', (_req, res) => res.redirect(301, '/auth/'));
+app.get('/pay', (_req, res) => res.redirect(301, '/pricing/'));
+app.get('/paid', (_req, res) => res.redirect(301, '/pricing/'));
 
 app.use(express.static(webRoot, { extensions: ['html'] }));
 app.get('/', (_req, res) => res.sendFile(join(webRoot, 'index.html')));

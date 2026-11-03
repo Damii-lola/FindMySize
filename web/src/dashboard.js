@@ -1,6 +1,3 @@
-import { canCreateChart, recordChart, isLoggedIn } from "./limits.js";
-import { mountUserMenu } from "./user-menu.js";
-mountUserMenu();
 /**
  * The dashboard: the clothing a store sells, and the link each garment hands out.
  *
