@@ -422,6 +422,6 @@ export function openPopupEditor({ chart, siteUrl, onSave, toast }) {
 
   document.body.append(root);
   document.body.style.overflow = 'hidden';
-  showPhase(1);
+  showPhase(0);
   closeButton.focus();
 }

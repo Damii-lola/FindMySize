@@ -21,6 +21,7 @@ export default defineConfig({
         auth: page('auth/index.html'),
         register: page('register/index.html'),
         registered: page('registered/index.html'),
+        shop: page('shop/index.html'),
       },
       output: { manualChunks: { three: ['three'], supabase: ['@supabase/supabase-js'] } },
     },

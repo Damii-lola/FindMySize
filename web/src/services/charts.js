@@ -189,18 +189,19 @@ export async function removeChart(id) {
  * for a code that matches nothing (a link that has been deleted, or a typo).
  */
 export async function chartByCode(code) {
-  const client = await supabaseClient();
-  if (!client || !code) return null;
-  const { data, error } = await client.rpc('chart_by_code', { candidate: code });
-  if (error) throw error;
-  const row = Array.isArray(data) ? data[0] : data;
-  if (!row) return null;
-  return {
-    name: typeof row.name === 'string' ? row.name : '',
-    sex: row.sex === 'female' || row.sex === 'male' ? row.sex : 'unisex',
-    unit: row.unit === 'cm' ? 'cm' : 'in',
-    columns: Array.isArray(row.columns) ? row.columns : [],
-    rows: Array.isArray(row.rows) ? row.rows : [],
-    popup: row.popup && typeof row.popup === 'object' && !Array.isArray(row.popup) ? row.popup : {},
-  };
+  if (!code) return null;
+  try {
+    const row = await api(`/api/charts/code/${encodeURIComponent(code)}`);
+    if (!row) return null;
+    return {
+      name: typeof row.name === 'string' ? row.name : '',
+      sex: row.sex === 'female' || row.sex === 'male' ? row.sex : 'unisex',
+      unit: row.unit === 'cm' ? 'cm' : 'in',
+      columns: Array.isArray(row.columns) ? row.columns : [],
+      rows: Array.isArray(row.rows) ? row.rows : [],
+      popup: row.popup && typeof row.popup === 'object' && !Array.isArray(row.popup) ? row.popup : {},
+    };
+  } catch {
+    return null;
+  }
 }

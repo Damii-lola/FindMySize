@@ -133,6 +133,24 @@ meRoutes.post('/subscription/cancel', ah(async (req, res) => {
   res.json({ ok: true, status: 'canceled', paidUntil: current?.paid_until || null });
 }));
 
+chartRoutes.get('/code/:code', ah(async (req, res) => {
+  const code = String(req.params.code || '').trim();
+  if (!code) throw new HttpError(400, 'Missing chart code');
+  if (supabaseConfigured()) {
+    const { data, error } = await db().from('size_charts')
+      .select('code, name, sex, unit, columns, rows, popup')
+      .eq('code', code)
+      .maybeSingle();
+    if (error) throw new HttpError(500, error.message);
+    if (data) return res.json(data);
+  }
+  for (const list of charts.values()) {
+    const found = list.find((c) => c.code === code);
+    if (found) return res.json(found);
+  }
+  res.status(404).json({ error: 'No chart with that code' });
+}));
+
 chartRoutes.get('/', ah(async (req, res) => {
   const user = await userFromAuth(req);
   if (!user) return res.json({ charts: charts.get(req.get('x-device-id')) || [] });
