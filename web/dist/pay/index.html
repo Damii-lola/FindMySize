@@ -11,50 +11,131 @@
     <link rel="icon" href="/FindMySize/favicon.ico" sizes="32x32" />
     <link rel="apple-touch-icon" href="/FindMySize/apple-touch-icon.png" />
     <script src="/FindMySize/theme-init.js"></script>
-    <script type="module" crossorigin src="/FindMySize/assets/pay-CBJjHL4V.js"></script>
+    <style>
+      .pw-wrap { position: relative; }
+      .pw-wrap input { padding-right: 2.6rem; }
+      .pw-eye {
+        position: absolute; right: .6rem; top: 50%; transform: translateY(-50%);
+        background: none; border: 0; padding: .3rem; cursor: pointer; color: #8a7a6a;
+        display: flex; align-items: center;
+      }
+      .pw-eye:hover { color: #f0521f; }
+      .pw-eye svg { width: 1.2rem; height: 1.2rem; fill: none; stroke: currentColor; stroke-width: 1.7; }
+      .step-note { margin: 0 0 18px; color: var(--muted, #6b5b4e); font-size: .95rem; line-height: 1.5; }
+      .activate-card { text-align: center; padding: 8px 0 4px; }
+      .activate-card h2 { margin: 0 0 8px; font-size: 1.6rem; }
+    </style>
+    <script type="module" crossorigin src="/FindMySize/assets/pay--r018A-O.js"></script>
     <link rel="modulepreload" crossorigin href="/FindMySize/assets/modulepreload-polyfill-B5Qt9EMX.js">
     <link rel="stylesheet" crossorigin href="/FindMySize/assets/auth-CAE-0p9E.css">
     <link rel="stylesheet" crossorigin href="/FindMySize/assets/theme-B_KWcFXd.css">
   </head>
   <body>
-    <main class="auth-stage">
-      <div class="auth-card-wrap">
-        <div class="auth-card">
-          <header class="auth-head">
-            <h1>Activate your account</h1>
-            <p class="auth-lead">Create your account, confirm your email, then pay once to unlock unlimited scans and charts.</p>
-          </header>
+    <header class="topbar">
+      <div class="shell topbar-inner">
+        <a class="brand" href="/FindMySize/" aria-label="FindMySize — home">
+          <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+            <rect width="32" height="32" rx="9" fill="#f0521f"/>
+            <g transform="rotate(45 16 16)">
+              <rect x="12.5" y="6" width="7" height="3.2" rx="1" fill="#fdf7ea"/>
+              <rect x="12.5" y="9.2" width="7" height="1.4" fill="#f0521f"/>
+              <rect x="12.5" y="10.6" width="7" height="12.2" rx="0.6" fill="#fdf7ea"/>
+              <path d="M12.5 22.8h7L16 28z" fill="#fdf7ea"/>
+              <path d="M14.9 26.3h2.2L16 28z" fill="#191411"/>
+            </g>
+          </svg>
+          <span class="brand-name">FindMy<b>Size</b></span>
+        </a>
+        <nav class="nav" aria-label="Primary">
+          <a class="nav-link" href="/FindMySize/dashboard/">Dashboard</a>
+        </nav>
+      </div>
+    </header>
 
-          <form class="auth-form" id="signup-form" novalidate>
-            <div class="auth-field">
-              <label for="email">Email</label>
-              <input id="email" name="email" type="email" autocomplete="email" required placeholder="you@example.com">
+    <main class="auth-main shell">
+      <div class="auth-grid">
+        <div class="auth-card-wrap">
+          <section class="auth-card">
+            <div class="card-bar">
+              <span class="card-tag"><span class="dot"></span>Activate</span>
+              <span class="card-secure">
+                <svg class="od-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M7.2 10.2V7.4a4.8 4.8 0 0 1 9.6 0v2.8"/>
+                  <rect x="4.9" y="10.2" width="14.2" height="9.3" rx="2.4"/>
+                </svg>
+                One-time setup
+              </span>
             </div>
-            <div class="auth-field">
-              <label for="password">Password</label>
-              <input id="password" name="password" type="password" autocomplete="new-password" required minlength="6">
-            </div>
-            <div class="auth-field">
-              <label for="confirm">Confirm password</label>
-              <input id="confirm" name="confirm" type="password" autocomplete="new-password" required>
-            </div>
-            <button class="btn btn--primary btn--block" type="submit">Send code to email</button>
-          </form>
 
-          <form class="auth-form" id="otp-form" hidden novalidate>
-            <div class="auth-field">
-              <label for="otp">Code from email</label>
-              <input id="otp" name="otp" type="text" inputmode="numeric" autocomplete="one-time-code" required placeholder="000000">
-            </div>
-            <button class="btn btn--primary btn--block" type="submit">Confirm code</button>
-          </form>
+            <div class="card-body">
+              <header class="auth-head">
+                <h1 id="auth-title">Activate your account</h1>
+                <p class="auth-lead">Create your account, confirm your email, then pay once to unlock unlimited scans and charts.</p>
+              </header>
 
-          <section id="activate-step" hidden>
-            <p class="auth-lead">Email confirmed. Click below to pay and activate unlimited access.</p>
-            <a class="btn btn--primary btn--block" id="activate-btn" href="#">Activate account (pay)</a>
+              <form class="auth-form" id="signup-form" novalidate>
+                <div class="auth-field">
+                  <div class="field-top">
+                    <label for="email">Email</label>
+                  </div>
+                  <input id="email" name="email" type="email" autocomplete="email" required placeholder="you@example.com">
+                </div>
+                <div class="auth-field">
+                  <div class="field-top">
+                    <label for="password">Password</label>
+                    <span class="field-note">at least 6 characters</span>
+                  </div>
+                  <div class="pw-wrap">
+                    <input id="password" name="password" type="password" autocomplete="new-password" required minlength="6" placeholder="••••••••">
+                    <button type="button" class="pw-eye" aria-label="Show password" data-target="password">
+                      <svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+                    </button>
+                  </div>
+                </div>
+                <div class="auth-field">
+                  <div class="field-top">
+                    <label for="confirm">Confirm password</label>
+                  </div>
+                  <div class="pw-wrap">
+                    <input id="confirm" name="confirm" type="password" autocomplete="new-password" required placeholder="••••••••">
+                    <button type="button" class="pw-eye" aria-label="Show password" data-target="confirm">
+                      <svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+                    </button>
+                  </div>
+                </div>
+                <button class="btn btn--primary btn--block" type="submit">
+                  Send code to email
+                  <svg class="od-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h15M13 6l6 6-6 6"/></svg>
+                </button>
+              </form>
+
+              <form class="auth-form" id="otp-form" hidden novalidate>
+                <p class="step-note">We sent a code to <strong id="otp-email"></strong>. Enter it below.</p>
+                <div class="auth-field">
+                  <div class="field-top">
+                    <label for="otp">Code from email</label>
+                    <span class="field-note">6 digits</span>
+                  </div>
+                  <input id="otp" name="otp" type="text" inputmode="numeric" autocomplete="one-time-code" required placeholder="••••••" class="auth-code-input">
+                </div>
+                <button class="btn btn--primary btn--block" type="submit">
+                  Confirm email
+                  <svg class="od-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h15M13 6l6 6-6 6"/></svg>
+                </button>
+              </form>
+
+              <section id="activate-step" hidden class="activate-card">
+                <h2>Email confirmed</h2>
+                <p class="step-note">One payment unlocks unlimited scans, charts, and popup uses on this account.</p>
+                <a class="btn btn--primary btn--block" id="activate-btn" href="#">
+                  Continue to payment
+                  <svg class="od-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h15M13 6l6 6-6 6"/></svg>
+                </a>
+              </section>
+
+              <p class="status" id="status" role="status" aria-live="polite"></p>
+            </div>
           </section>
-
-          <p class="status" id="status" role="status"></p>
         </div>
       </div>
     </main>
