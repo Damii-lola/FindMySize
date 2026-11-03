@@ -23,9 +23,10 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
   contentSecurityPolicy: false,
 }));
+const pagesOrigin = 'https://damii-lola.github.io';
 app.use(cors({
   origin(origin, cb) {
-    if (!origin || config.corsOrigins.includes('*') || config.corsOrigins.includes(origin)) return cb(null, true);
+    if (!origin || config.corsOrigins.includes('*') || config.corsOrigins.includes(origin) || origin === pagesOrigin) return cb(null, true);
     cb(new HttpError(403, `Origin ${origin} not allowed`));
   },
   methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
