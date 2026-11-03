@@ -25,9 +25,10 @@ export const config = Object.freeze({
   corsOrigins: list(process.env.CORS_ORIGINS, '*'),
   supabase: Object.freeze({
     url: process.env.SUPABASE_URL || '',
-    serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || '',
-    // public (browser-safe) key; handed to the web app by GET /api/public-config
-    anonKey: process.env.SUPABASE_ANON_KEY || '',
+    // Server only. New name is the secret key; old name was the service role.
+    serviceRoleKey: process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+    // Browser-safe. New name is the publishable key; old name was the anon key.
+    anonKey: process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY || '',
     bucket: process.env.SUPABASE_BUCKET || 'garments',
   }),
   cloudflare: Object.freeze({
@@ -100,7 +101,7 @@ export function missingConfig() {
   const missing = [];
   if (!config.supabase.url) missing.push('SUPABASE_URL');
   if (!config.supabase.serviceRoleKey) missing.push('SUPABASE_SECRET_KEY');
-  if (!config.supabase.anonKey) missing.push('SUPABASE_ANON_KEY');
+  if (!config.supabase.anonKey) missing.push('SUPABASE_PUBLISHABLE_KEY');
   if (config.vision.provider === 'mistral') {
     if (!config.vision.mistral.apiKey) missing.push('MISTRAL_API_KEY');
   } else {

@@ -51,7 +51,7 @@ app.get('/api/public-config', (_req, res) => {
   res.json({
     selarCheckoutUrl: config.selarCheckoutUrl || '',
     supabase: supabaseConfigured(),
-    // The anon key is public by design — the browser needs it to talk to Supabase.
+    // Publishable key (was called the anon key). Safe for the browser.
     supabaseUrl: config.supabase.url || '',
     supabaseAnonKey: config.supabase.anonKey || '',
   });
