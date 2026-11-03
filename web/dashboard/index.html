@@ -91,8 +91,7 @@
             the right size before they order the wrong one.
           </p>
           <div class="hero-actions rise rise--2">
-            <a class="btn btn--primary" href="%BASE_URL%auth/" data-out-only hidden>Log in or sign up</a>
-            <a class="btn btn--ghost" href="%BASE_URL%pricing/" data-out-only hidden>See the price</a>
+            <a class="btn btn--primary" href="%BASE_URL%auth/" data-out-only hidden>Log in</a>
             <a class="btn btn--primary" href="#add" data-in-only hidden>
               Add a garment
               <svg class="od-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h15M13 6l6 6-6 6"/></svg>
@@ -165,18 +164,18 @@
         <div class="ledger-head">
           <div class="ledger-title">
             <span class="ledger-index" aria-hidden="true">A</span>
-            <h3 id="anon-title">Log in to add your clothing</h3>
+            <h3 id="anon-title">Free on this device</h3>
           </div>
-          <span class="ledger-badge">No account on this browser</span>
+          <span class="ledger-badge">No account</span>
         </div>
         <p class="hint">
-          A username, an email and a password. Your size charts belong to that
-          account; a customer opening a link from your product page needs no
-          account of their own.
+          Without an account this device can keep <strong>one size chart</strong>,
+          and that chart’s popup works <strong>10 times</strong> before it turns off.
+          The scanner on the Size page works <strong>3 times</strong>.
+          Register to get unlimited charts, unlimited popup uses, and unlimited scans.
         </p>
         <div class="btn-row">
-          <a class="btn btn--primary" href="%BASE_URL%auth/">Log in or sign up</a>
-          <a class="btn btn--ghost" href="%BASE_URL%pricing/">See the price</a>
+          <a class="btn btn--primary" href="%BASE_URL%auth/">Log in</a>
         </div>
       </div>
     </section>
@@ -231,6 +230,16 @@
             <code>supabase/setup.sql</code> and run it (README, step 4), then
             reload this page. Saving is off until then &mdash; nothing else here
             needs it, and the scanner is unaffected.
+          </p>
+        </div>
+
+        <div class="notice free-tier" id="free-tier" role="note">
+          <h3>Free on this device</h3>
+          <p>
+            Without an account you can save <strong>one size chart</strong> here.
+            That chart’s popup works <strong>10 times</strong>, then it turns off.
+            The Size page allows <strong>3 scans</strong>.
+            Register to unlock unlimited charts, unlimited popup uses, and unlimited scans.
           </p>
         </div>
 

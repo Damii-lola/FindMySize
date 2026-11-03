@@ -28,6 +28,10 @@ import { openPopupEditor } from './popup-editor.js';
 import { buttonAttributeString } from './popup-config.js';
 import { chartColumns, checkChartColumns, listCharts, notSetUp, removeChart, saveChart } from './services/charts.js';
 
+/* Free-tier note: hide it once this browser has a registered account. */
+const freeTier = document.getElementById('free-tier');
+if (freeTier && localStorage.getItem('fms_token')) freeTier.hidden = true;
+
 const signInSection = document.getElementById('dash-anon');
 const workSection = document.getElementById('dash-in');
 const nameEl = document.getElementById('dash-name');

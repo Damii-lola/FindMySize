@@ -24,6 +24,10 @@ import { cloudConfig } from './services/config.js';
 import { getSession, isAccount } from './services/auth.js';
 import { applyPopupConfig, DEFAULTS } from './popup-config.js';
 
+/* Free-tier note: hide it once this browser has a registered account. */
+const freeTier = document.getElementById('free-tier');
+if (freeTier && localStorage.getItem('fms_token')) freeTier.hidden = true;
+
 /** A cold API can take a while to say where the cloud is; past this, the scanner opens. */
 const CONFIG_WAIT = 4000;
 

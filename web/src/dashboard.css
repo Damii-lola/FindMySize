@@ -1922,6 +1922,15 @@ dialog[open] .dialog-card { animation: dialog-in 0.3s var(--ease) both; }
 .notice p { font-size: 0.9rem; line-height: 1.55; }
 .notice code { font-family: var(--font-mono); font-size: 0.85em; }
 
+/* Free-tier note: helpful, not an error. */
+.notice.free-tier {
+  border-color: rgba(240, 82, 31, 0.35);
+  background: #fff7ee;
+  color: var(--ink);
+}
+.notice.free-tier h3 { color: var(--orange-text, #a9330a); }
+.notice.free-tier strong { color: var(--ink); }
+
 /* ---------- the popup editor (popup-editor.js): a full-screen dialog over the dashboard ---------- */
 
 .pe {

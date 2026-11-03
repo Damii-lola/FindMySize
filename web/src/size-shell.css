@@ -484,3 +484,29 @@ html:not(.embed)[data-theme="dark"] body.app .nav-account-item:hover { backgroun
 html:not(.embed)[data-theme="dark"] body.app .stage { box-shadow: 0 40px 80px -44px rgba(0, 0, 0, 0.9); border: 1px solid var(--n-line-dark, rgba(245, 233, 214, 0.1)); }
 html:not(.embed)[data-theme="dark"] .page-ticker,
 html:not(.embed)[data-theme="dark"] .page-foot { background: #0b0907; }
+
+/* Free-tier note for unregistered users. Hidden once a token is present. */
+html:not(.embed) .free-tier {
+  max-width: 640px;
+  margin: 18px auto 8px;
+  padding: 14px 16px;
+  background: #fff7ee;
+  border: 1px solid rgba(240, 82, 31, 0.28);
+  border-radius: 14px;
+  color: var(--n-ink);
+}
+html:not(.embed) .free-tier-kicker {
+  margin: 0 0 4px;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--n-orange-text);
+  font-weight: 650;
+}
+html:not(.embed) .free-tier-body {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--n-ink-soft);
+}
+html:not(.embed) .free-tier strong { color: var(--n-ink); }
