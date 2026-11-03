@@ -3,7 +3,7 @@
  *
  * Email + password, then the code emailed to that address. The activation code
  * is only required the first time (or after a cancel). Signup lives on the
- * unlinked /pay page.
+ * unlinked /register page.
  */
 import './nav.js';
 import { API_URL } from './services/config.js';
@@ -135,7 +135,7 @@ codeBack?.addEventListener('click', () => {
   showLogin();
 });
 
-// Start on the login form. Signup lives on /pay.
+// Start on the login form. Signup lives on /register.
 showLogin();
 if (loginForm) loginForm.hidden = false;
 const signupForm = byId('signup-form');

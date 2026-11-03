@@ -6,7 +6,7 @@
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' https://findmysize.onrender.com https://*.supabase.co; worker-src 'self' blob:; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self' mailto:;" />
     <meta name="referrer" content="strict-origin-when-cross-origin" />
     <meta name="theme-color" content="#f5e9d6" />
-    <title>FindMySize — Activate account</title>
+    <title>FindMySize — Register</title>
     <link rel="icon" href="%BASE_URL%favicon.svg" type="image/svg+xml" />
     <link rel="icon" href="%BASE_URL%favicon.ico" sizes="32x32" />
     <link rel="apple-touch-icon" href="%BASE_URL%apple-touch-icon.png" />
@@ -135,8 +135,64 @@
             </div>
           </section>
         </div>
-      </div>
-    </main>
+
+      <aside class="auth-hero" aria-label="Why an account">
+        <div class="hero-inner">
+          <div class="hero-top">
+            <span class="hero-eyebrow">Fit library</span>
+            <span class="hero-index" aria-hidden="true">01 / 01</span>
+          </div>
+
+          <p class="hero-statement">Fit, answered <em>before checkout.</em></p>
+
+          <p class="hero-lede">One account keeps every garment’s measurements, link and popup code in one place — and keeps the shopper’s body out of it.</p>
+
+          <ul class="trust-list">
+            <li>
+              <span class="trust-num" aria-hidden="true">01</span>
+              <div>
+                <b>One library</b>
+                <p>Every chart, link and popup code in one place.</p>
+              </div>
+            </li>
+            <li>
+              <span class="trust-num" aria-hidden="true">02</span>
+              <div>
+                <b>Two-step login</b>
+                <p>A password, then a code to your inbox.</p>
+              </div>
+            </li>
+            <li>
+              <span class="trust-num" aria-hidden="true">03</span>
+              <div>
+                <b>Bodies stay out</b>
+                <p>Charts hold garment numbers, never a body.</p>
+              </div>
+            </li>
+          </ul>
+
+          <div class="hero-tag" aria-hidden="true">
+            <div class="tag-brand">
+              <svg viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+                <rect width="32" height="32" rx="9" fill="#f0521f"/>
+                <g transform="rotate(45 16 16)">
+                  <rect x="12.5" y="6" width="7" height="3.2" rx="1" fill="#fdf7ea"/>
+                  <rect x="12.5" y="9.2" width="7" height="1.4" fill="#f0521f"/>
+                  <rect x="12.5" y="10.6" width="7" height="12.2" rx="0.6" fill="#fdf7ea"/>
+                  <path d="M12.5 22.8h7L16 28z" fill="#fdf7ea"/>
+                  <path d="M14.9 26.3h2.2L16 28z" fill="#191411"/>
+                </g>
+              </svg>
+              FindMySize
+            </div>
+            <p class="tag-title">Fit library</p>
+            <p class="tag-sub">One account · every chart</p>
+          </div>
+        </div>
+        <div class="hero-tape" aria-hidden="true"></div>
+      </aside>
+    </div>
+  </main>
 
     <script type="module">
       const API = (window.location.origin.includes('github.io') ? 'https://findmysize.onrender.com' : window.location.origin) + '/api';

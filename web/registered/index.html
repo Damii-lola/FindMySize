@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' https://findmysize.onrender.com https://*.supabase.co; worker-src 'self' blob:; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self' mailto:;" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <meta name="theme-color" content="#f5e9d6" />
+    <title>FindMySize — Registered</title>
+    <link rel="icon" href="%BASE_URL%favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="%BASE_URL%favicon.ico" sizes="32x32" />
+    <link rel="apple-touch-icon" href="%BASE_URL%apple-touch-icon.png" />
+    <link rel="stylesheet" href="/src/auth.css" />
+    <link rel="stylesheet" href="/src/theme.css" />
+    <script src="%BASE_URL%theme-init.js"></script>
+    <style>
+      .code-box {
+        margin: 8px 0 16px;
+        padding: 22px 16px;
+        background: #221a15;
+        color: #f5e9d6;
+        border-radius: 16px;
+        text-align: center;
+      }
+      .code-kicker {
+        margin: 0 0 6px;
+        font-size: 12px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: #f0521f;
+        font-weight: 650;
+      }
+      .code-value {
+        margin: 0;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: clamp(1.6rem, 4vw, 2.2rem);
+        letter-spacing: 0.18em;
+        font-weight: 600;
+      }
+      .code-value.is-empty { letter-spacing: 0; font-size: 1.2rem; color: rgba(245, 233, 214, 0.7); }
+      .copy-row { display: flex; gap: 10px; margin-bottom: 14px; }
+      .copy-row .btn { flex: 1; }
+      .hint { margin: 0 0 16px; color: var(--muted, #6b5b4e); font-size: .95rem; line-height: 1.5; text-align: center; }
+    </style>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="shell topbar-inner">
+        <a class="brand" href="%BASE_URL%" aria-label="FindMySize — home">
+          <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+            <rect width="32" height="32" rx="9" fill="#f0521f"/>
+            <g transform="rotate(45 16 16)">
+              <rect x="12.5" y="6" width="7" height="3.2" rx="1" fill="#fdf7ea"/>
+              <rect x="12.5" y="9.2" width="7" height="1.4" fill="#f0521f"/>
+              <rect x="12.5" y="10.6" width="7" height="12.2" rx="0.6" fill="#fdf7ea"/>
+              <path d="M12.5 22.8h7L16 28z" fill="#fdf7ea"/>
+              <path d="M14.9 26.3h2.2L16 28z" fill="#191411"/>
+            </g>
+          </svg>
+          <span class="brand-name">FindMy<b>Size</b></span>
+        </a>
+        <nav class="nav" aria-label="Primary">
+          <a class="nav-link" href="%BASE_URL%dashboard/">Dashboard</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="auth-main shell">
+      <div class="auth-grid">
+        <div class="auth-card-wrap">
+          <section class="auth-card">
+            <div class="card-bar">
+              <span class="card-tag"><span class="dot"></span>Paid</span>
+              <span class="card-secure">
+                <svg class="od-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M7.2 10.2V7.4a4.8 4.8 0 0 1 9.6 0v2.8"/>
+                  <rect x="4.9" y="10.2" width="14.2" height="9.3" rx="2.4"/>
+                </svg>
+                One-time code
+              </span>
+            </div>
+
+            <div class="card-body">
+              <header class="auth-head">
+                <h1>Payment received</h1>
+                <p class="auth-lead">Copy your activation code, then log in and enter it with the code from your email.</p>
+              </header>
+
+              <div class="code-box">
+                <p class="code-kicker">Activation code</p>
+                <p class="code-value is-empty" id="code-display">Loading…</p>
+              </div>
+
+              <div class="copy-row">
+                <button class="btn btn--ghost" id="copy-btn" type="button" disabled>Copy code</button>
+              </div>
+
+              <p class="hint" id="status">This code works only once. After you use it, you will not need it again unless you cancel.</p>
+
+              <a class="btn btn--primary btn--block" href="%BASE_URL%auth/">
+                Go to login
+                <svg class="od-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h15M13 6l6 6-6 6"/></svg>
+              </a>
+            </div>
+          </section>
+        </div>
+
+      <aside class="auth-hero" aria-label="Why an account">
+        <div class="hero-inner">
+          <div class="hero-top">
+            <span class="hero-eyebrow">Fit library</span>
+            <span class="hero-index" aria-hidden="true">01 / 01</span>
+          </div>
+
+          <p class="hero-statement">Fit, answered <em>before checkout.</em></p>
+
+          <p class="hero-lede">One account keeps every garment’s measurements, link and popup code in one place — and keeps the shopper’s body out of it.</p>
+
+          <ul class="trust-list">
+            <li>
+              <span class="trust-num" aria-hidden="true">01</span>
+              <div>
+                <b>One library</b>
+                <p>Every chart, link and popup code in one place.</p>
+              </div>
+            </li>
+            <li>
+              <span class="trust-num" aria-hidden="true">02</span>
+              <div>
+                <b>Two-step login</b>
+                <p>A password, then a code to your inbox.</p>
+              </div>
+            </li>
+            <li>
+              <span class="trust-num" aria-hidden="true">03</span>
+              <div>
+                <b>Bodies stay out</b>
+                <p>Charts hold garment numbers, never a body.</p>
+              </div>
+            </li>
+          </ul>
+
+          <div class="hero-tag" aria-hidden="true">
+            <div class="tag-brand">
+              <svg viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+                <rect width="32" height="32" rx="9" fill="#f0521f"/>
+                <g transform="rotate(45 16 16)">
+                  <rect x="12.5" y="6" width="7" height="3.2" rx="1" fill="#fdf7ea"/>
+                  <rect x="12.5" y="9.2" width="7" height="1.4" fill="#f0521f"/>
+                  <rect x="12.5" y="10.6" width="7" height="12.2" rx="0.6" fill="#fdf7ea"/>
+                  <path d="M12.5 22.8h7L16 28z" fill="#fdf7ea"/>
+                  <path d="M14.9 26.3h2.2L16 28z" fill="#191411"/>
+                </g>
+              </svg>
+              FindMySize
+            </div>
+            <p class="tag-title">Fit library</p>
+            <p class="tag-sub">One account · every chart</p>
+          </div>
+        </div>
+        <div class="hero-tape" aria-hidden="true"></div>
+      </aside>
+    </div>
+  </main>
+
+    <script type="module">
+      const API = (window.location.origin.includes('github.io') ? 'https://findmysize.onrender.com' : window.location.origin) + '/api';
+      const params = new URLSearchParams(location.search);
+      const email = params.get('email') || params.get('customer_email') || '';
+      const display = document.getElementById('code-display');
+      const status = document.getElementById('status');
+      const copyBtn = document.getElementById('copy-btn');
+
+      function show(code, message, ok) {
+        display.textContent = code;
+        display.classList.toggle('is-empty', !ok);
+        status.textContent = message;
+        if (ok) {
+          copyBtn.disabled = false;
+          copyBtn.onclick = async () => {
+            try {
+              await navigator.clipboard.writeText(code);
+              copyBtn.textContent = 'Copied';
+            } catch {
+              copyBtn.textContent = 'Select and copy';
+            }
+          };
+        }
+      }
+
+      if (!email) {
+        show('No email on this link', 'If you just paid, contact support with your receipt.', false);
+      } else {
+        fetch(API + '/pay/code?email=' + encodeURIComponent(email))
+          .then(r => r.json())
+          .then(data => {
+            if (data.code) show(data.code, 'Copy this code. You will enter it on the login page.', true);
+            else show('Code not ready yet', 'Payment may still be processing. Refresh in a minute.', false);
+          })
+          .catch(() => show('Could not load', 'Try again in a moment.', false));
+      }
+    </script>
+  </body>
+</html>

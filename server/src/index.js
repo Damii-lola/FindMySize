@@ -63,14 +63,16 @@ app.use('/api/usage', usageRoutes);
 app.use('/api/charts', chartRoutes);
 app.use('/api/body-scan', bodyScan);
 
-for (const page of ['size', 'dashboard', 'settings', 'auth', 'pay', 'paid']) {
+for (const page of ['size', 'dashboard', 'settings', 'auth', 'register', 'registered']) {
   app.get(`/${page}`, (_req, res) => res.redirect(301, `/${page}/`));
 }
 app.get('/login', (_req, res) => res.redirect(301, '/auth/'));
 // Home is the size page
 app.get('/', (_req, res) => res.redirect(302, '/size/'));
-app.get('/pay', (_req, res) => res.redirect(301, '/pay/'));
-app.get('/paid', (_req, res) => res.redirect(301, '/paid/'));
+app.get('/register', (_req, res) => res.redirect(301, '/register/'));
+app.get('/registered', (_req, res) => res.redirect(301, '/registered/'));
+app.get('/pay', (_req, res) => res.redirect(301, '/register/'));
+app.get('/paid', (_req, res) => res.redirect(301, '/registered/'));
 
 app.use(express.static(webRoot, { extensions: ['html'] }));
 app.get('/', (_req, res) => res.sendFile(join(webRoot, 'index.html')));
