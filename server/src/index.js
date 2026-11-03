@@ -5,12 +5,13 @@ import multer from 'multer';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { config, missingConfig } from './config.js';
-import { HttpError } from './lib/errors.js';
+import { HttpError, ah } from './lib/errors.js';
 import { supabaseConfigured } from './lib/supabase.js';
 import { bodyScan } from './routes/body-scan.js';
 import { authRoutes } from './routes/auth.js';
 import { payRoutes, meRoutes, usageRoutes, chartRoutes } from './routes/account.js';
 import { websiteRoutes } from './routes/website.js';
+import { checkChartColumns } from './lib/cloudflare.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const webRoot = join(__dirname, '../../web/dist');
@@ -50,6 +51,9 @@ app.get('/api/public-config', (_req, res) => {
   res.json({
     selarCheckoutUrl: config.selarCheckoutUrl || '',
     supabase: supabaseConfigured(),
+    // The anon key is public by design — the browser needs it to talk to Supabase.
+    supabaseUrl: config.supabase.url || '',
+    supabaseAnonKey: config.supabase.anonKey || '',
   });
 });
 
@@ -64,6 +68,12 @@ app.use('/api/usage', usageRoutes);
 app.use('/api/charts', chartRoutes);
 app.use('/api/body-scan', bodyScan);
 app.use('/api/website-analysis', websiteRoutes);
+
+app.post('/api/chart-check', ah(async (req, res) => {
+  const labels = Array.isArray(req.body?.labels) ? req.body.labels : [];
+  const result = await checkChartColumns(labels);
+  res.json(result || { ok: true, skipped: true });
+}));
 
 for (const page of ['size', 'dashboard', 'settings', 'auth', 'register', 'registered']) {
   app.get(`/${page}`, (_req, res) => res.redirect(301, `/${page}/`));
