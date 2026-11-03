@@ -1,29 +1,148 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Dashboard — FindMySize</title>
-  <link rel="stylesheet" href="/src/dashboard.css" />
+  <link rel="stylesheet" href="/assets/site.css" />
 </head>
 <body>
-  <nav class="nav">
-    <a class="nav-brand" href="/">FindMySize</a>
+  <header class="nav">
+    <a class="brand" href="/">FindMy<b>Size</b></a>
     <div class="nav-links">
       <a href="/">Size</a>
-      <span id="user-menu"></span>
+      <button class="user-btn" id="user-btn" type="button" aria-label="Account">☺</button>
     </div>
-  </nav>
-  <main id="dash-app">
-    <section id="dash-in">
-      <h2>Size charts</h2>
-      <form id="chart-form">
-        <input id="chart-name" placeholder="Chart name" required />
-        <button type="submit">Save chart</button>
-      </form>
-      <div id="chart-list"></div>
+    <div class="menu" id="user-menu"></div>
+  </header>
+  <main>
+    <h1>Size charts</h1>
+    <p class="lead">Enter the <strong>body</strong> measurements that fit each size — the chest that wears it, not the garment laid flat. The scanner measures the body. A free device can keep one chart, and its popup works 10 times.</p>
+    <form class="card" id="form">
+      <label><span>Garment</span><input id="name" required placeholder="Oxford shirt" /></label>
+      <div class="row">
+        <label><span>Made for</span>
+          <select id="sex"><option value="male">Men</option><option value="female">Women</option><option value="unisex">Anyone</option></select>
+        </label>
+        <label><span>Unit</span>
+          <select id="unit"><option value="in">Inches</option><option value="cm">Centimetres</option></select>
+        </label>
+      </div>
+      <table>
+        <thead><tr><th>Size</th><th>Chest</th><th>Waist</th><th>Hips</th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+      <p><button class="ghost" id="add" type="button">Add a size</button></p>
+      <button class="primary" type="submit">Save chart</button>
+      <p id="msg" class="note"></p>
+    </form>
+    <section id="list"></section>
+    <section class="card hidden" id="popup">
+      <h2 id="popup-title">Try the popup</h2>
+      <p class="note">This is the shopper view. Upload a short turn. The size is chosen from this chart’s body measurements, not from a flat garment.</p>
+      <label style="margin:0">Upload a clip<input id="popup-file" type="file" accept="video/*" /></label>
+      <p id="popup-msg" class="note"></p>
+      <div id="popup-stats" class="grid"></div>
     </section>
   </main>
-  <script type="module" src="/src/dashboard.js"></script>
+  <script type="module">
+    import { api, mountUserMenu } from '/assets/api.js';
+    mountUserMenu();
+    const tbody = document.getElementById('rows');
+    function addRow(size = '', chest = '', waist = '', hips = '') {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td><input value="${size}" data-k="size" /></td><td><input value="${chest}" data-k="chest" /></td><td><input value="${waist}" data-k="waist" /></td><td><input value="${hips}" data-k="hips" /></td>`;
+      tbody.appendChild(tr);
+    }
+    ['S', 'M', 'L'].forEach((s) => addRow(s));
+    document.getElementById('add').onclick = () => addRow();
+    let saved = [];
+    async function load() {
+      const { charts = [] } = await api('/api/charts');
+      saved = charts;
+      const off = localStorage.getItem('fms_popup_off') === '1';
+      document.getElementById('list').innerHTML = charts.map((c) => `
+        <article class="card">
+          <strong>${c.name}</strong>
+          <p class="note">${c.sex} · code ${c.code}${off ? ' · popup off (10 uses)' : ''}</p>
+          <button class="ghost" data-code="${c.code}" type="button">Try the popup</button>
+        </article>`).join('') || '<p class="note">No charts yet.</p>';
+      document.querySelectorAll('[data-code]').forEach((btn) => {
+        btn.onclick = () => openPopup(btn.dataset.code);
+      });
+    }
+    function openPopup(code) {
+      const chart = saved.find((c) => c.code === code);
+      if (!chart) return;
+      const box = document.getElementById('popup');
+      box.dataset.code = code;
+      document.getElementById('popup-title').textContent = `Popup · ${chart.name}`;
+      document.getElementById('popup-msg').textContent = '';
+      document.getElementById('popup-stats').innerHTML = '';
+      box.classList.remove('hidden');
+      box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    document.getElementById('popup-file').onchange = async () => {
+      const file = document.getElementById('popup-file').files?.[0];
+      const chart = saved.find((c) => c.code === document.getElementById('popup').dataset.code);
+      if (!file || !chart) return;
+      const msg = document.getElementById('popup-msg');
+      msg.textContent = 'Measuring against this chart…';
+      const form = new FormData();
+      form.append('video', file, file.name || 'turn.webm');
+      form.append('usage', 'popup');
+      form.append('chart', JSON.stringify({
+        name: chart.name,
+        sex: chart.sex,
+        unit: chart.unit,
+        columns: chart.columns,
+        rows: chart.rows,
+      }));
+      try {
+        const data = await api('/api/body-scan', { method: 'POST', form });
+        const a = data.adjusted || {};
+        document.getElementById('popup-stats').innerHTML = [
+          ['Chest', a.chest], ['Waist', a.waist], ['Hips', a.hips], ['Size', data.size],
+        ].filter(([, v]) => v != null).map(([k, v]) =>
+          `<div class="stat"><span>${k.toUpperCase()}</span><strong>${v}${k === 'Size' ? '' : ' in'}</strong></div>`).join('');
+        msg.textContent = data.size
+          ? `Size ${data.size} on ${chart.name}.`
+          : (data.notes?.[0] || 'Measured, but no size matched this chart.');
+      } catch (e) {
+        if (/10 times|off/i.test(e.message)) localStorage.setItem('fms_popup_off', '1');
+        msg.textContent = e.message;
+        load();
+      }
+    };
+    document.getElementById('form').onsubmit = async (e) => {
+      e.preventDefault();
+      const rows = [...tbody.querySelectorAll('tr')].map((tr) => {
+        const o = {};
+        tr.querySelectorAll('input').forEach((i) => { o[i.dataset.k] = i.value; });
+        return o;
+      }).filter((r) => r.size);
+      try {
+        await api('/api/charts', {
+          method: 'POST',
+          body: {
+            name: document.getElementById('name').value,
+            sex: document.getElementById('sex').value,
+            unit: document.getElementById('unit').value,
+            columns: [
+              { id: 'chest', label: 'Chest', measure: 'chest' },
+              { id: 'waist', label: 'Waist', measure: 'waist' },
+              { id: 'hips', label: 'Hips', measure: 'hips' },
+            ],
+            rows,
+          },
+        });
+        document.getElementById('msg').textContent = 'Saved.';
+        load();
+      } catch (err) {
+        document.getElementById('msg').textContent = err.message;
+      }
+    };
+    load();
+  </script>
 </body>
 </html>

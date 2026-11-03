@@ -89,6 +89,7 @@ import { geminiChat, geminiConfigured } from '../lib/gemini.js';
 import { oaChat, oaConfigured, oaModel } from '../lib/openai-compat.js';
 import { bestSize, chartFromInput, CHARTS, chartKey, columnsFromRows } from '../lib/sizing.js';
 import { measureField } from '../shared/measures.js';
+import { consume } from '../lib/limits.js';
 
 /**
  * Uploads land on disk, not in memory: a phone clip can be tens of megabytes and
@@ -1426,7 +1427,7 @@ bodyScan.post('/', limiter, cap, upload.fields([{ name: 'frames', maxCount: 16 }
     // here as on the vision path, and it is what fills a chest the geometry alone
     // could not find.
     const { calc, calcMeta } = await runCalculation(frames, req.query);
-    return await finishScan(res, {
+    return await finishScan(req, res, {
       frames,
       rejected,
       unreadable,
@@ -1594,7 +1595,7 @@ bodyScan.post('/', limiter, cap, upload.fields([{ name: 'frames', maxCount: 16 }
   // measures — from the points as they came in.
   const { calc, calcMeta } = await runCalculation(frames, req.query);
 
-  return await finishScan(res, {
+  return await finishScan(req, res, {
     frames,
     rejected,
     unreadable,
@@ -1623,7 +1624,7 @@ bodyScan.post('/', limiter, cap, upload.fields([{ name: 'frames', maxCount: 16 }
  * on one scale across the turn, measure each region from landmark geometry, and
  * pick a size. Nothing here knows or cares which path produced the frames.
  */
-async function finishScan(res, { frames, rejected, unreadable, failures, clip = null, timing = null, aspect, attempted, totalBytes, sourceModel, poseNotes, gender: chosenGender, chart = null, chartName = '', chartSex = null, calc = null, calcMeta = null, startedAt }) {
+async function finishScan(req, res, { frames, rejected, unreadable, failures, clip = null, timing = null, aspect, attempted, totalBytes, sourceModel, poseNotes, gender: chosenGender, chart = null, chartName = '', chartSex = null, calc = null, calcMeta = null, startedAt }) {
   if (frames.length === 0) {
     log(`x no usable frames after ${Date.now() - startedAt}ms (${rejected.length} rejected, ${failures.length} failed)`);
     const details = { diagnostics: { model: sourceModel, clip, timing, rejected, unreadable, failures } };
@@ -2113,6 +2114,8 @@ async function finishScan(res, { frames, rejected, unreadable, failures, clip = 
   // nothing to keep. Timing and provenance are enough to debug the pipeline.
   log(`done in ${result.debug.elapsedMs}ms - basis=${sizeBasis} source=${sizeSource} rows=${catalogue.items.length}`);
 
+  const gate = await consume(req, String(req.body?.usage || req.query?.usage || '') === 'popup' ? 'popups' : 'scans');
+  if (!gate.ok) throw new HttpError(402, gate.error);
   res.json(result);
 }
 

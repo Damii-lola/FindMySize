@@ -1,37 +1,73 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Activate — FindMySize</title>
-  <style>
-    body { font-family: system-ui, sans-serif; max-width: 420px; margin: 2rem auto; padding: 1rem; }
-    input, button { width: 100%; padding: 0.75rem; margin: 0.5rem 0; box-sizing: border-box; }
-    .step { display: none; }
-    .step.active { display: block; }
-  </style>
+  <link rel="stylesheet" href="/assets/site.css" />
 </head>
 <body>
-  <h2>Activate account</h2>
-
-  <div id="step-signup" class="step active">
-    <input id="email" type="email" placeholder="Email" required />
-    <input id="password" type="password" placeholder="Password" required />
-    <input id="confirm" type="password" placeholder="Confirm password" required />
-    <button id="send-otp">Send code</button>
-  </div>
-
-  <div id="step-otp" class="step">
-    <p>Enter the code sent to your email</p>
-    <input id="otp" placeholder="6-digit code" maxlength="6" />
-    <button id="verify-otp">Verify</button>
-  </div>
-
-  <div id="step-activate" class="step">
-    <p>Account created. Activate to unlock full features.</p>
-    <button id="go-pay">Activate with Selar</button>
-  </div>
-
-  <script type="module" src="/src/pay.js"></script>
+  <header class="nav"><a class="brand" href="/">FindMy<b>Size</b></a></header>
+  <main>
+    <h1>Activate an account</h1>
+    <p class="lead">This page is not linked from the site. You send it to a brand when they are ready to pay.</p>
+    <form class="card" id="signup">
+      <label><span>Email</span><input id="email" type="email" required /></label>
+      <label><span>Password</span><input id="password" type="password" required /></label>
+      <label><span>Confirm password</span><input id="confirm" type="password" required /></label>
+      <button class="primary" type="submit">Send code</button>
+    </form>
+    <form class="card hidden" id="otp">
+      <label><span>Code from email</span><input id="otp-input" required /></label>
+      <button class="primary" type="submit">Confirm</button>
+    </form>
+    <section class="card hidden" id="activate">
+      <p>Account created. Pay to get an activation code, then log in on the main site with that code once.</p>
+      <p class="note">In Selar, set the success redirect to <code id="redirect"></code></p>
+      <button class="primary" id="go" type="button">Activate with Selar</button>
+    </section>
+    <p id="msg" class="note"></p>
+  </main>
+  <script type="module">
+    import { api } from '/assets/api.js';
+    const msg = document.getElementById('msg');
+    let email = '';
+    document.getElementById('redirect').textContent = location.origin + '/paid/';
+    document.getElementById('signup').onsubmit = async (e) => {
+      e.preventDefault();
+      email = document.getElementById('email').value.trim();
+      sessionStorage.setItem('fms_pay_email', email);
+      try {
+        const res = await api('/api/auth/signup', {
+          method: 'POST',
+          body: {
+            email,
+            password: document.getElementById('password').value,
+            confirm: document.getElementById('confirm').value,
+          },
+        });
+        document.getElementById('signup').classList.add('hidden');
+        document.getElementById('otp').classList.remove('hidden');
+        if (res.devOtp) msg.textContent = `Preview email code: ${res.devOtp}`;
+      } catch (err) { msg.textContent = err.message; }
+    };
+    document.getElementById('otp').onsubmit = async (e) => {
+      e.preventDefault();
+      try {
+        await api('/api/auth/verify', { method: 'POST', body: { email, otp: document.getElementById('otp-input').value.trim() } });
+        document.getElementById('otp').classList.add('hidden');
+        document.getElementById('activate').classList.remove('hidden');
+      } catch (err) { msg.textContent = err.message; }
+    };
+    document.getElementById('go').onclick = async () => {
+      const cfg = await api('/api/public-config');
+      if (!cfg.selarCheckoutUrl) {
+        await api('/api/pay/dev-claim', { method: 'POST', body: { email } });
+        location.href = '/paid/?email=' + encodeURIComponent(email);
+        return;
+      }
+      location.href = cfg.selarCheckoutUrl;
+    };
+  </script>
 </body>
 </html>

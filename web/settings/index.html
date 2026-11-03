@@ -1,30 +1,45 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Settings — FindMySize</title>
-  <link rel="stylesheet" href="/src/settings.css" />
+  <link rel="stylesheet" href="/assets/site.css" />
 </head>
 <body>
-  <nav class="nav">
-    <a class="nav-brand" href="/">FindMySize</a>
+  <header class="nav">
+    <a class="brand" href="/">FindMy<b>Size</b></a>
     <div class="nav-links">
-      <a href="/">Size</a>
       <a href="/dashboard/">Dashboard</a>
+      <button class="user-btn" id="user-btn" type="button" aria-label="Account">☺</button>
     </div>
-  </nav>
+    <div class="menu" id="user-menu"></div>
+  </header>
   <main>
-    <h2>Settings</h2>
-    <section id="subscription">
-      <h3>Subscription</h3>
-      <p id="sub-status">Checking…</p>
-      <button id="cancel-sub" hidden>Cancel subscription</button>
-    </section>
-    <section>
-      <button id="logout">Log out</button>
+    <h1>Settings</h1>
+    <section class="card">
+      <p id="who" class="note">Checking account…</p>
+      <button class="ghost" id="cancel" type="button" hidden>Cancel subscription</button>
+      <p id="msg" class="note"></p>
     </section>
   </main>
-  <script type="module" src="/src/settings.js"></script>
+  <script type="module">
+    import { api, mountUserMenu, token } from '/assets/api.js';
+    mountUserMenu();
+    if (!token()) location.href = '/login/';
+    const who = document.getElementById('who');
+    const cancel = document.getElementById('cancel');
+    const me = await api('/api/me');
+    who.textContent = me.email
+      ? `${me.email} — ${me.unlimited ? 'active until ' + (me.paidUntil || 'this period') : (me.status || 'not active')}`
+      : 'Not logged in.';
+    if (me.unlimited) cancel.hidden = false;
+    cancel.onclick = async () => {
+      if (!confirm('Cancel this subscription? The next login will need a new activation code after you pay again.')) return;
+      const res = await api('/api/me/subscription/cancel', { method: 'POST', body: {} });
+      document.getElementById('msg').textContent = `Status: ${res.status}. Log in again after you pay to enter a new code.`;
+      cancel.hidden = true;
+    };
+  </script>
 </body>
 </html>

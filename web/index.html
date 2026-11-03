@@ -1,29 +1,103 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>FindMySize</title>
-  <link rel="stylesheet" href="/src/size-shell.css" />
+  <link rel="stylesheet" href="/assets/site.css" />
 </head>
 <body>
-  <nav class="nav">
-    <a class="nav-brand" href="/">FindMySize</a>
+  <header class="nav">
+    <a class="brand" href="/">FindMy<b>Size</b></a>
     <div class="nav-links">
       <a href="/dashboard/">Dashboard</a>
-      <span id="user-menu"></span>
+      <button class="user-btn" id="user-btn" type="button" aria-label="Account">☺</button>
     </div>
-  </nav>
-  <main id="size-app">
-    <section id="intro">
-      <h1>Get your size</h1>
-      <p class="lead">Record a short video and get measurements for clothing.</p>
-      <button id="start-scan">Start scan</button>
+    <div class="menu" id="user-menu"></div>
+  </header>
+  <main>
+    <h1>Find your size</h1>
+    <p class="lead">Record a short turn, or upload a clip. Stand straight, whole body in frame, arms a little away from your sides. Nothing is saved — the frames are deleted as soon as they are measured.</p>
+    <section class="card">
+      <video id="preview" class="preview" autoplay muted playsinline hidden></video>
+      <p id="status" class="note">Free on this device: 3 scans. An active account removes the limit.</p>
+      <div class="row">
+        <button class="primary" id="record" type="button">Record</button>
+        <button class="ghost" id="stop" type="button" disabled>Stop</button>
+        <label style="margin:0">Upload<input id="file" type="file" accept="video/*" /></label>
+      </div>
+      <p id="error" class="err"></p>
     </section>
-    <section id="results" hidden>
-      <div id="measurements"></div>
+    <section id="results" class="card hidden">
+      <p id="who" class="note"></p>
+      <div id="stats" class="grid"></div>
+      <p id="size" class="note"></p>
     </section>
   </main>
-  <script type="module" src="/src/size.js"></script>
+  <script type="module">
+    import { api, mountUserMenu } from '/assets/api.js';
+    mountUserMenu();
+    const preview = document.getElementById('preview');
+    const status = document.getElementById('status');
+    const error = document.getElementById('error');
+    const results = document.getElementById('results');
+    let recorder, chunks = [], stream;
+
+    function show(data) {
+      const a = data.adjusted || data.measurements || {};
+      const fields = [
+        ['Neck', a.neck], ['Chest', a.chest], ['Waist', a.waist], ['Hips', a.hips],
+        ['Shoulder', a.shoulder], ['Arm', a.arm], ['Height', a.height],
+      ];
+      document.getElementById('stats').innerHTML = fields.filter(([, v]) => v != null).map(([k, v]) =>
+        `<div class="stat"><span>${k.toUpperCase()}</span><strong>${v} in</strong></div>`).join('');
+      const g = data.gender?.guess ? `${data.gender.guess} (${Math.round((data.gender.confidence || 0) * 100)}%)` : '';
+      document.getElementById('who').textContent = g;
+      document.getElementById('size').textContent = data.size ? `Reference size: ${data.size}` : '';
+      results.classList.remove('hidden');
+    }
+
+    async function send(file) {
+      error.textContent = '';
+      status.textContent = 'Measuring… this can take a minute.';
+      const form = new FormData();
+      form.append('video', file, file.name || 'turn.webm');
+      try {
+        const data = await api('/api/body-scan', { method: 'POST', form });
+        show(data);
+        status.textContent = 'Done.';
+      } catch (e) {
+        error.textContent = e.message;
+        status.textContent = 'The scan did not finish.';
+      }
+    }
+
+    document.getElementById('record').onclick = async () => {
+      error.textContent = '';
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+      preview.srcObject = stream;
+      preview.hidden = false;
+      chunks = [];
+      recorder = new MediaRecorder(stream);
+      recorder.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
+      recorder.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop());
+        send(new Blob(chunks, { type: recorder.mimeType || 'video/webm' }));
+      };
+      recorder.start();
+      document.getElementById('record').disabled = true;
+      document.getElementById('stop').disabled = false;
+      status.textContent = 'Recording. Turn slowly, then stop.';
+    };
+    document.getElementById('stop').onclick = () => {
+      recorder?.stop();
+      document.getElementById('stop').disabled = true;
+      document.getElementById('record').disabled = false;
+    };
+    document.getElementById('file').onchange = () => {
+      const file = document.getElementById('file').files?.[0];
+      if (file) send(file);
+    };
+  </script>
 </body>
 </html>

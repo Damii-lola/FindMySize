@@ -1,34 +1,60 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Log in — FindMySize</title>
-  <style>
-    body { font-family: system-ui, sans-serif; max-width: 420px; margin: 2rem auto; padding: 1rem; }
-    input, button { width: 100%; padding: 0.75rem; margin: 0.5rem 0; box-sizing: border-box; }
-    .step { display: none; }
-    .step.active { display: block; }
-  </style>
+  <link rel="stylesheet" href="/assets/site.css" />
 </head>
 <body>
-  <h2>Log in</h2>
-
-  <div id="step-creds" class="step active">
-    <input id="email" type="email" placeholder="Email" />
-    <input id="password" type="password" placeholder="Password" />
-    <button id="continue">Continue</button>
-  </div>
-
-  <div id="step-otp" class="step">
-    <p>Enter the code from your email</p>
-    <input id="otp" placeholder="OTP" maxlength="6" />
-    <div id="activation-field" hidden>
-      <input id="activation" placeholder="Activation code" />
-    </div>
-    <button id="finish">Log in</button>
-  </div>
-
-  <script type="module" src="/src/login.js"></script>
+  <header class="nav"><a class="brand" href="/">FindMy<b>Size</b></a></header>
+  <main>
+    <h1>Log in</h1>
+    <form class="card" id="creds">
+      <label><span>Email</span><input id="email" type="email" required /></label>
+      <label><span>Password</span><input id="password" type="password" required /></label>
+      <button class="primary" type="submit">Continue</button>
+    </form>
+    <form class="card hidden" id="otp-form">
+      <p class="note">Enter the code sent to your email. The activation code is only asked the first time, and again if you canceled.</p>
+      <label><span>Email code</span><input id="otp" inputmode="numeric" required /></label>
+      <label id="code-wrap"><span>Activation code</span><input id="code" /></label>
+      <button class="primary" type="submit">Log in</button>
+    </form>
+    <p id="msg" class="err"></p>
+  </main>
+  <script type="module">
+    import { api, setSession } from '/assets/api.js';
+    const msg = document.getElementById('msg');
+    let email = '';
+    let needsCode = true;
+    document.getElementById('creds').onsubmit = async (e) => {
+      e.preventDefault();
+      msg.textContent = '';
+      email = document.getElementById('email').value.trim();
+      try {
+        const res = await api('/api/auth/login', {
+          method: 'POST',
+          body: { email, password: document.getElementById('password').value },
+        });
+        needsCode = res.needsCode;
+        document.getElementById('code-wrap').classList.toggle('hidden', !needsCode);
+        document.getElementById('creds').classList.add('hidden');
+        document.getElementById('otp-form').classList.remove('hidden');
+        if (res.devOtp) msg.textContent = `Preview code: ${res.devOtp}`;
+      } catch (err) { msg.textContent = err.message; }
+    };
+    document.getElementById('otp-form').onsubmit = async (e) => {
+      e.preventDefault();
+      try {
+        const res = await api('/api/auth/login/finish', {
+          method: 'POST',
+          body: { email, otp: document.getElementById('otp').value.trim(), code: document.getElementById('code').value.trim() },
+        });
+        setSession(res.access_token, res.email || email);
+        location.href = '/';
+      } catch (err) { msg.textContent = err.message; }
+    };
+  </script>
 </body>
 </html>

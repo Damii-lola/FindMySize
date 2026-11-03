@@ -70,10 +70,15 @@ export async function predictMeasurements(points) {
   try {
     const ort = await import('onnxruntime-web');
     const tensor = new ort.Tensor('float32', points, [1, points.length / 3, 3]);
-    const out = await sess.run({ points: tensor });
+    const extra = new ort.Tensor('float32', new Float32Array([0]), [1, 1]);
+    let out;
+    try {
+      out = await sess.run({ points: tensor, extra });
+    } catch {
+      out = await sess.run({ points: tensor });
+    }
     const arr = out.measurements?.data || out[Object.keys(out)[0]]?.data;
     if (!arr) return null;
-    // Map to names — adjust this list to match your training output order
     const KEYS = [
       'head_circumference_cm', 'neck_circumference_cm', 'head_height_cm',
       'chest_cm', 'bust_cm', 'underbust_cm', 'waist_cm', 'lower_waist_cm',
@@ -85,11 +90,32 @@ export async function predictMeasurements(points) {
       'calf_cm', 'trouser_bottom_cm', 'inseam_cm', 'high_ankle_cm', 'ankle_cm',
       'foot_length_cm',
     ];
+    // The network was trained on normalised labels. A raw output that is not a
+    // human measurement in centimetres is ignored so it cannot fill a gap with
+    // a z-score.
+    const RANGE = {
+      head_circumference_cm: [48, 70], neck_circumference_cm: [25, 55], head_height_cm: [15, 30],
+      chest_cm: [60, 160], bust_cm: [60, 160], underbust_cm: [55, 150],
+      waist_cm: [50, 160], lower_waist_cm: [50, 160], hips_cm: [60, 170],
+      back_width_cm: [25, 60], shoulder_cm: [30, 70],
+      nape_to_waist_cm: [30, 70], shoulder_to_waist_cm: [25, 65],
+      body_rise_cm: [15, 45], dart_cm: [0, 30], waist_to_hip_cm: [10, 35],
+      waist_to_floor_cm: [70, 140], armhole_depth_cm: [10, 35],
+      top_arm_cm: [18, 55], sleeve_length_cm: [40, 90], sleeve_length_jersey_cm: [40, 90],
+      elbow_cm: [16, 45], wrist_cm: [12, 28], two_piece_sleeve_cm: [40, 90],
+      cuff_shirts_cm: [12, 32], crotch_length_cm: [15, 45], waist_to_knee_cm: [40, 80],
+      knee_cm: [25, 55], calf_cm: [22, 55], trouser_bottom_cm: [16, 40],
+      inseam_cm: [55, 100], high_ankle_cm: [16, 35], ankle_cm: [14, 32],
+      foot_length_cm: [18, 35],
+    };
     const result = {};
     for (let i = 0; i < Math.min(arr.length, KEYS.length); i++) {
-      result[KEYS[i]] = Math.round(arr[i] * 10) / 10;
+      const v = Math.round(arr[i] * 10) / 10;
+      const range = RANGE[KEYS[i]];
+      if (!range || v < range[0] || v > range[1]) continue;
+      result[KEYS[i]] = v;
     }
-    return result;
+    return Object.keys(result).length ? result : null;
   } catch (e) {
     console.log('[pointnet] inference failed:', e.message);
     return null;

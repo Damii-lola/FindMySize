@@ -181,7 +181,9 @@ export function chartFromInput(input) {
 
   const out = {};
   for (const row of rowsIn) {
-    const label = typeof row?.key === 'string' ? row.key.trim().slice(0, 14) : '';
+    const fromKey = typeof row?.key === 'string' ? row.key.trim() : '';
+    const fromSize = typeof row?.size === 'string' ? row.size.trim() : '';
+    const label = (fromKey || fromSize).slice(0, 14);
     // Two rows with the same label are the same size; the first one wins, because
     // that is the order the store typed them in.
     if (!label || out[label]) continue;
