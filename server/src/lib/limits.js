@@ -30,9 +30,9 @@ export async function subscriptionOf(userId) {
 }
 
 export function isActive(sub) {
-  if (!sub || sub.status !== 'active') return false;
+  if (!sub) return false;
   if (sub.paid_until && new Date(sub.paid_until).getTime() < Date.now()) return false;
-  return true;
+  return sub.status === 'active' || sub.status === 'canceled';
 }
 
 export async function isUnlimited(req) {

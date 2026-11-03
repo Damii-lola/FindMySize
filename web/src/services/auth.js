@@ -36,7 +36,8 @@ export async function getSession() {
 }
 
 export async function accessToken() {
-  return (await getSession())?.access_token || null;
+  const session = await getSession();
+  return session?.access_token || localStorage.getItem('fms_token') || null;
 }
 
 export async function onAuthChange(cb) {

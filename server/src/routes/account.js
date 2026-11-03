@@ -102,23 +102,24 @@ meRoutes.get('/', ah(async (req, res) => {
 meRoutes.post('/subscription/cancel', ah(async (req, res) => {
   const user = requireUser((await isUnlimited(req)).user);
   if (String(user.id).startsWith('dev:')) {
-    rememberDevSub(user.id, { status: 'canceled', paid_until: null });
-    markDevInactive(user.email);
-    return res.json({ ok: true, status: 'canceled' });
+    const current = (await subscriptionOf(user.id)) || {};
+    rememberDevSub(user.id, { ...current, status: 'canceled' });
+    return res.json({ ok: true, status: 'canceled', paidUntil: current.paid_until || null });
   }
   if (!supabaseConfigured()) throw new HttpError(503, 'Supabase is not configured');
+  const current = await subscriptionOf(user.id);
   const { error } = await db().from('subscriptions').upsert({
     user_id: user.id,
     plan: 'unlimited',
     status: 'canceled',
-    paid_until: new Date().toISOString(),
+    paid_until: current?.paid_until || new Date().toISOString(),
     updated_at: new Date().toISOString(),
   }, { onConflict: 'user_id' });
   if (error) throw new HttpError(500, error.message);
-  // A canceled account must redeem a new code the next time they pay.
+  // A canceled account keeps access until paid_until, then needs a new code to renew.
   const email = emailOf(user.email);
   if (email) codes.delete(email);
-  res.json({ ok: true, status: 'canceled' });
+  res.json({ ok: true, status: 'canceled', paidUntil: current?.paid_until || null });
 }));
 
 chartRoutes.get('/', ah(async (req, res) => {

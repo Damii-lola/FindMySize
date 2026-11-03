@@ -43,18 +43,26 @@ navItems.forEach((n) => {
 /* ---------- sign-in gating ---------- */
 
 function paint(session) {
-  const account = isAccount(session);
+  const token = localStorage.getItem('fms_token');
+  const account = isAccount(session) || Boolean(token);
   gate.hidden = account;
   body.hidden = !account;
   if (!account) return;
 
-  const name = session.user.user_metadata?.username || session.user.email || 'Account';
-  const email = session.user.email || '';
+  const name = session?.user?.user_metadata?.username || localStorage.getItem('fms_email') || 'Account';
+  const email = session?.user?.email || localStorage.getItem('fms_email') || '';
 
-  document.getElementById('settings-account-name').textContent = name;
-  document.getElementById('settings-account-email').textContent = email;
-  document.getElementById('settings-username').value = session.user.user_metadata?.username || '';
-  document.getElementById('settings-email').value = email;
+  const nameEl = document.getElementById('settings-account-name');
+  const emailEl = document.getElementById('settings-account-email');
+  if (nameEl) nameEl.textContent = name;
+  if (emailEl) emailEl.textContent = email;
+  const username = document.getElementById('settings-username');
+  const emailInput = document.getElementById('settings-email');
+  if (username) username.value = session?.user?.user_metadata?.username || '';
+  if (emailInput) emailInput.value = email;
+
+  loadSubscription();
+}
 
   // Avatar: first letter of username / email
   const avatar = document.getElementById('settings-avatar');
@@ -310,7 +318,7 @@ getSession().then(paint).catch(() => paint(null));
    in by paint() above, which is the one place that reads the session); this adds
    the words around them, and the menu on a phone. */
 getSession().then((session) => {
-  const account = isAccount(session);
+  const account = isAccount(session) || Boolean(localStorage.getItem('fms_token'));
   const label = document.getElementById('af-session');
   if (label) label.textContent = account ? 'Live session' : 'Not logged in';
   const foot = document.getElementById('af-foot')?.querySelector('span');
@@ -338,3 +346,70 @@ if (menuButton) {
     if (event.matches && menuButton.getAttribute('aria-expanded') === 'true') menuButton.click();
   });
 }
+
+/* ---------- subscription ---------- */
+
+function formatDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+async function loadSubscription() {
+  const name = document.getElementById('settings-plan-name');
+  const price = document.getElementById('settings-plan-price');
+  const next = document.getElementById('settings-plan-next');
+  const renew = document.getElementById('settings-renew');
+  const cancel = document.getElementById('settings-cancel');
+  const status = document.getElementById('settings-billing-status');
+  if (!name) return;
+  try {
+    const me = await api('/api/me');
+    const until = formatDate(me.paidUntil);
+    const active = me.unlimited;
+    const canceled = me.status === 'canceled';
+    if (active && !canceled) {
+      name.textContent = 'Unlimited';
+      price.innerHTML = 'Active';
+      next.textContent = until ? `Paid until ${until}.` : 'Unlimited scans, charts, and popup uses.';
+      if (cancel) cancel.hidden = false;
+      if (renew) renew.hidden = true;
+    } else if (active && canceled) {
+      name.textContent = 'Canceled';
+      price.innerHTML = 'Ending';
+      next.textContent = until
+        ? `You keep unlimited access until ${until}. After that this account is on the free tier — still logged in.`
+        : 'Canceled. Access ends at the close of this period.';
+      if (cancel) cancel.hidden = true;
+      if (renew) { renew.hidden = false; renew.textContent = 'Renew subscription'; }
+    } else {
+      name.textContent = 'Free';
+      price.innerHTML = 'Free tier';
+      next.textContent = '3 scans, 1 chart, 5 popup uses on this device. Renew for unlimited.';
+      if (cancel) cancel.hidden = true;
+      if (renew) { renew.hidden = false; renew.textContent = 'Renew subscription'; }
+    }
+    if (me.selarCheckoutUrl && renew) renew.href = me.selarCheckoutUrl;
+    if (status) status.textContent = '';
+  } catch {
+    if (status) status.textContent = 'Could not load subscription status.';
+  }
+}
+
+document.getElementById('settings-cancel')?.addEventListener('click', async () => {
+  const status = document.getElementById('settings-billing-status');
+  if (!confirm('Cancel your subscription? You keep unlimited access until the end of the period you already paid for. After that the account stays logged in on the free tier.')) return;
+  const btn = document.getElementById('settings-cancel');
+  btn.disabled = true;
+  btn.textContent = 'Canceling…';
+  try {
+    const data = await api('/api/me/subscription/cancel', { method: 'POST' });
+    if (status) status.textContent = 'Canceled. You keep access until the period ends.';
+    await loadSubscription();
+  } catch (err) {
+    if (status) status.textContent = err.message || 'Could not cancel.';
+    btn.disabled = false;
+    btn.textContent = 'Cancel subscription';
+  }
+});
