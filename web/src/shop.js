@@ -1,52 +1,56 @@
 /**
  * The store page behind the customiser's "Phase 0": a plain product page with the
- * FindMySize button on it, drawn by the real embed.js from the settings the dashboard
- * sends as they are edited — so the button seen here is the one a store ships.
- *
- * A module rather than an inline script because the site's content-security policy
- * (script-src 'self') blocks inline ones, and the script's address is built from the
- * site's base path because the site is served from /3dGarments/ on GitHub Pages.
+ * FindMySize button on it. The button is drawn here so the preview never depends
+ * on the embed script succeeding, and embed.js is still loaded so the real one
+ * can take over when it does.
  */
 import { buttonAttributes, normalizePopup } from './popup-config.js';
 
 const inlineSlot = document.getElementById('inline-slot');
 
-let embed = null;
-const ready = new Promise((resolve) => {
-  const script = document.createElement('script');
-  script.src = `${import.meta.env.BASE_URL}embed.js`;
-  script.onload = () => resolve(window.ThreeDG);
-  script.onerror = () => resolve(null);
-  document.body.appendChild(script);
-});
-
-/** Draw the button the way `popup.button` says (and nowhere else: the page is a picture). */
-async function draw(rawConfig) {
-  embed = embed || await ready;
-  if (!embed) return;
+function paint(rawConfig) {
   const { button } = normalizePopup(rawConfig);
-  // Only what the snippet would carry: the default button is drawn by embed.js's own default.
   const attrs = buttonAttributes(rawConfig);
-  document.querySelectorAll('.threeDG-float').forEach((el) => el.remove());
-  inlineSlot.replaceChildren();
-  embed.mount(button.float ? null : inlineSlot, {
-    // no code: pressing it does nothing here (the popup is previewed in the other two phases)
-    code: '',
-    label: button.label,
-    color: attrs['data-color'] || '',
-    textColor: attrs['data-text-color'] || '',
-    radius: attrs['data-radius'] || '',
-    side: button.side,
-    float: button.float,
-  });
+  document.querySelectorAll('.threeDG-float, .fms-preview-btn').forEach((el) => el.remove());
+  if (inlineSlot) inlineSlot.replaceChildren();
+
+  const make = () => {
+    const el = document.createElement('button');
+    el.type = 'button';
+    el.className = 'fms-preview-btn';
+    el.textContent = button.label || 'Find My Size';
+    el.style.cssText = [
+      'display:inline-flex',
+      'align-items:center',
+      'gap:8px',
+      'padding:12px 18px',
+      'border:0',
+      `border-radius:${button.radius}px`,
+      `background:${button.bg}`,
+      `color:${button.textColor}`,
+      'font:650 15px/1.2 system-ui,sans-serif',
+      'cursor:pointer',
+      'box-shadow:0 10px 24px rgba(0,0,0,.18)',
+    ].join(';');
+    return el;
+  };
+
+  if (button.float) {
+    const wrap = document.createElement('div');
+    wrap.className = 'threeDG-float' + (button.side === 'left' ? ' threeDG-left' : '');
+    wrap.style.cssText = `position:fixed;${button.side === 'left' ? 'left' : 'right'}:18px;bottom:18px;z-index:50`;
+    wrap.append(make());
+    document.body.append(wrap);
+  } else if (inlineSlot) {
+    inlineSlot.append(make());
+  }
 }
 
 window.addEventListener('message', (event) => {
   if (event.origin !== location.origin || event.source !== window.parent) return;
   const message = event.data;
-  if (message && message.source === '3dg-preview' && message.type === 'config') draw(message.config);
+  if (message && message.source === '3dg-preview' && message.type === 'config') paint(message.config);
 });
 
-// Drawn once with the defaults, so the page is never empty while the dashboard catches up.
-draw({});
+paint({});
 if (window.parent !== window) window.parent.postMessage({ source: '3dg-preview', type: 'ready', phase: 'button' }, location.origin);
