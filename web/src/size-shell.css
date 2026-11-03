@@ -510,3 +510,29 @@ html:not(.embed) .free-tier-body {
   color: var(--n-ink-soft);
 }
 html:not(.embed) .free-tier strong { color: var(--n-ink); }
+
+/* Free-tier note sits on the dark stage. Match the card, don't fight it. */
+html:not(.embed) .free-tier {
+  max-width: none;
+  margin: 16px 0 4px;
+  padding: 14px 16px;
+  background: color-mix(in srgb, var(--pu-text, #f5e9d6) 6%, transparent);
+  border: 1px solid color-mix(in srgb, var(--pu-text, #f5e9d6) 16%, transparent);
+  border-radius: 14px;
+  color: var(--pu-text, #f5e9d6);
+}
+html:not(.embed) .free-tier-kicker {
+  margin: 0 0 4px;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--pu-accent, #f0521f);
+  font-weight: 650;
+}
+html:not(.embed) .free-tier-body {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--pu-muted, rgba(245, 233, 214, 0.78));
+}
+html:not(.embed) .free-tier strong { color: var(--pu-text, #f5e9d6); }
