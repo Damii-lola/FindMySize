@@ -1,5 +1,5 @@
 /** Paints the free-tier countdown from /api/usage and keeps it fresh. */
-import { API_URL } from './config.js';
+import { API_URL } from './services/config.js';
 import { deviceId } from './device.js';
 
 const API = (API_URL || (location.origin.includes('github.io') ? 'https://findmysize.onrender.com' : location.origin)).replace(/\/$/, '');
