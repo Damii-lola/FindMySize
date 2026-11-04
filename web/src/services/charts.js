@@ -104,33 +104,40 @@ export async function listCharts() {
  * moment the row lands; a collision (essentially impossible, but a unique index
  * is a unique index) is answered by asking for another code once.
  */
+async function saveLocalAndServer({ id, name, sex, unit, columns, rows, popup }) {
+  const charts = localList();
+  const existing = id ? charts.find((c) => c.id === id) : null;
+  const row = {
+    id: id || crypto.randomUUID(),
+    code: existing?.code || newCode(),
+    name: name.trim().slice(0, 60),
+    sex, unit, columns, rows,
+    popup: popup || {},
+    created_at: existing?.created_at || new Date().toISOString(),
+  };
+  // Tell the server so the public link works even without an account.
+  try {
+    const saved = await api('/api/charts', { method: 'POST', body: { ...row, code: row.code } });
+    if (saved && saved.code) Object.assign(row, saved);
+  } catch { /* keep the local copy either way */ }
+  if (id) {
+    const i = charts.findIndex((c) => c.id === id);
+    if (i >= 0) charts[i] = { ...charts[i], ...row };
+    else charts.push(row);
+  } else {
+    charts.unshift(row);
+  }
+  localSave(charts);
+  return row;
+}
+
 export async function saveChart({ id, name, sex, unit, columns, rows, popup }) {
   if (!(await hasSession())) {
-    const charts = localList();
-    const row = { id: id || crypto.randomUUID(), code: newCode(), name: name.trim().slice(0, 60), sex, unit, columns, rows, popup: popup || {}, created_at: new Date().toISOString() };
-    if (id) {
-      const i = charts.findIndex((c) => c.id === id);
-      if (i >= 0) charts[i] = { ...charts[i], ...row };
-      else charts.push(row);
-    } else {
-      charts.unshift(row);
-    }
-    localSave(charts);
-    return row;
+    return saveLocalAndServer({ id, name, sex, unit, columns, rows, popup });
   }
   const client = await supabaseClient();
   if (!client) {
-    const charts = localList();
-    const row = { id: id || crypto.randomUUID(), code: newCode(), name: name.trim().slice(0, 60), sex, unit, columns, rows, popup: popup || {}, created_at: new Date().toISOString() };
-    if (id) {
-      const i = charts.findIndex((c) => c.id === id);
-      if (i >= 0) charts[i] = { ...charts[i], ...row };
-      else charts.push(row);
-    } else {
-      charts.unshift(row);
-    }
-    localSave(charts);
-    return row;
+    return saveLocalAndServer({ id, name, sex, unit, columns, rows, popup });
   }
   const row = { name: name.trim().slice(0, 60), sex, unit, columns, rows, popup: popup || {} };
   if (id) {

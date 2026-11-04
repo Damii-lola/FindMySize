@@ -10,7 +10,7 @@ end $$;
 
 create table if not exists public.size_charts (
   id         uuid primary key default gen_random_uuid(),
-  user_id    uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  user_id    uuid default auth.uid() references auth.users(id) on delete cascade,
   code       text not null unique,
   name       text not null check (char_length(name) between 1 and 60),
   sex        text not null default 'unisex' check (sex in ('male', 'female', 'unisex')),
@@ -77,3 +77,6 @@ alter table public.device_usage enable row level security;
 
 -- popup settings on a chart (safe to re-run)
 alter table public.size_charts add column if not exists popup jsonb not null default '{}'::jsonb;
+
+-- allow charts created without an account
+alter table public.size_charts alter column user_id drop not null;

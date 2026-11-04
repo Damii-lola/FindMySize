@@ -178,22 +178,50 @@ chartRoutes.post('/', ah(async (req, res) => {
   const unit = body.unit === 'cm' ? 'cm' : 'in';
   const columns = Array.isArray(body.columns) ? body.columns.slice(0, 12) : [];
   const rows = Array.isArray(body.rows) ? body.rows.slice(0, 24) : [];
-  if (!access.unlimited) {
+  const popup = body.popup && typeof body.popup === 'object' && !Array.isArray(body.popup) ? body.popup : {};
+  // Existing code means an update (used by logged-out edits). Otherwise mint one.
+  const code = String(body.code || '').trim() || crypto.randomBytes(6).toString('hex');
+  if (!access.unlimited && !body.code) {
     const gate = await consume(req, 'charts');
     if (!gate.ok) throw new HttpError(402, gate.error);
   }
-  const code = crypto.randomBytes(6).toString('hex');
-  const row = { id: crypto.randomUUID(), code, name, sex, unit, columns, rows, created_at: new Date().toISOString() };
-  if (access.user && supabaseConfigured() && !String(access.user.id).startsWith('dev:')) {
-    const { data, error } = await db().from('size_charts').insert({
-      user_id: access.user.id, code, name, sex, unit, columns, rows,
-    }).select('id, code, name, sex, unit, columns, rows, created_at').single();
-    if (error) throw new HttpError(500, error.message);
-    return res.json(data);
+  const row = { id: crypto.randomUUID(), code, name, sex, unit, columns, rows, popup, created_at: new Date().toISOString() };
+
+  if (supabaseConfigured()) {
+    const userId = access.user && !String(access.user.id).startsWith('dev:') ? access.user.id : null;
+    const payload = { code, name, sex, unit, columns, rows, popup };
+    if (userId) payload.user_id = userId;
+    // Try insert; if the code already exists, update it.
+    let { data, error } = await db().from('size_charts').insert(payload).select('id, code, name, sex, unit, columns, rows, popup, created_at').single();
+    if (error && String(error.code) === '23505') {
+      ({ data, error } = await db().from('size_charts').update(payload).eq('code', code).select('id, code, name, sex, unit, columns, rows, popup, created_at').single());
+    }
+    // popup column may be missing on older databases
+    if (error && /popup/i.test(error.message || '')) {
+      delete payload.popup;
+      ({ data, error } = await db().from('size_charts').insert(payload).select('id, code, name, sex, unit, columns, rows, created_at').single());
+      if (error && String(error.code) === '23505') {
+        ({ data, error } = await db().from('size_charts').update(payload).eq('code', code).select('id, code, name, sex, unit, columns, rows, created_at').single());
+      }
+      if (data) data.popup = popup;
+    }
+    if (!error && data) {
+      // also keep an in-memory copy so a just-saved chart is readable immediately
+      const key = access.user?.id || req.get('x-device-id') || 'anon';
+      const list = charts.get(key) || [];
+      const i = list.findIndex((c) => c.code === code);
+      if (i >= 0) list[i] = data; else list.unshift(data);
+      charts.set(key, list);
+      return res.json(data);
+    }
+    // fall through to memory if the database rejected it (e.g. user_id still NOT NULL)
   }
+
   const key = access.user?.id || req.get('x-device-id') || 'anon';
   const list = charts.get(key) || [];
-  list.unshift(row);
+  const i = list.findIndex((c) => c.code === code);
+  if (i >= 0) list[i] = { ...list[i], ...row };
+  else list.unshift(row);
   charts.set(key, list);
-  res.json(row);
+  res.json(i >= 0 ? list[i] : row);
 }));
