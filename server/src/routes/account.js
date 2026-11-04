@@ -47,6 +47,78 @@ payRoutes.post('/webhook', ah(async (req, res) => {
   console.log(`[selar] activation code issued for ${email}: ${code}`);
 }));
 
+
+payRoutes.post('/wavy-checkout', ah(async (req, res) => {
+  const secret = config.wavySecretKey;
+  if (!secret) throw new HttpError(503, 'Wavy secret key is not configured');
+
+  const email = emailOf(req.body?.email);
+  if (!email || !email.includes('@')) throw new HttpError(400, 'Enter a valid email');
+
+  const amount = Number(req.body?.amount) || 15000;
+  const reference = `fms_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const origin = String(req.get('origin') || 'https://findmysize.onrender.com').replace(/\/$/, '');
+
+  const response = await fetch(`${config.wavyApiBase}/api/gateway/v1/checkout`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${secret}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      amount,
+      description: 'FindMySize Unlimited',
+      email,
+      merchant_reference: reference,
+      success_url: `${origin}/registered/?paid=1`,
+      cancel_url: `${origin}/register/?cancel=1`,
+    }),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new HttpError(response.status || 502, data.message || data.error || 'Wavy checkout failed');
+
+  const url = data.authorization_url || data.checkout_url || data.url || data.data?.authorization_url;
+  if (!url) throw new HttpError(502, 'Wavy did not return a checkout URL');
+  res.json({ url, reference });
+}));
+
+payRoutes.post('/wavy', ah(async (req, res) => {
+  const secret = config.wavyWebhookSecret;
+  if (!secret) throw new HttpError(503, 'Wavy webhook secret is not configured');
+
+  const signature = String(req.get('x-wavy-signature') || '');
+  const givenSecret = String(req.get('x-webhook-secret') || req.body?.secret || '');
+  const bodyRaw = JSON.stringify(req.body || {});
+  let verified = false;
+  if (signature && secret) {
+    const expected = crypto.createHmac('sha256', secret).update(bodyRaw).digest('hex');
+    verified = timingEqual(signature, expected) || timingEqual(signature, `sha256=${expected}`);
+  }
+  if (!verified && givenSecret) verified = timingEqual(givenSecret, secret);
+  if (!verified) throw new HttpError(401, 'Invalid Wavy webhook signature');
+
+  const body = req.body || {};
+  const event = String(body.event || body.type || '').toLowerCase();
+  if (event && !event.includes('success') && !event.includes('completed') && event !== 'payment.success') {
+    return res.json({ ok: true, ignored: event });
+  }
+
+  const email = emailOf(
+    body.email
+    ?? body.customer_email
+    ?? body.buyer_email
+    ?? body.customer?.email
+    ?? body.data?.email
+    ?? body.data?.customer_email
+    ?? body.metadata?.email
+  );
+  if (!email) throw new HttpError(400, 'Wavy webhook has no customer email');
+  const code = await issueCode(email);
+  res.json({ ok: true, email });
+  console.log(`[wavy] activation code issued for ${email}: ${code}`);
+}));
+
 payRoutes.post('/dev-claim', ah(async (req, res) => {
   if (process.env.NODE_ENV === 'production') throw new HttpError(404, 'Not found');
   const email = emailOf(req.body?.email);
