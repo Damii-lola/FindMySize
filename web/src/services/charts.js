@@ -141,8 +141,19 @@ export async function saveChart({ id, name, sex, unit, columns, rows, popup }) {
   }
   const row = { name: name.trim().slice(0, 60), sex, unit, columns, rows, popup: popup || {} };
   if (id) {
-    const { data, error } = await client.from('size_charts').update(row).eq('id', id).select().single();
+    let { data, error } = await client.from('size_charts').update(row).eq('id', id).select().single();
+    if (error && /popup/i.test(error.message || '')) {
+      const without = { ...row };
+      delete without.popup;
+      ({ data, error } = await client.from('size_charts').update(without).eq('id', id).select().single());
+      if (data) data.popup = row.popup;
+    }
     if (error) throw error;
+    // The public link reads the chart from the server. Push the full popup there
+    // too, so theme, record and results survive — not only the button.
+    if (data?.code) {
+      try { await api('/api/charts', { method: 'POST', body: { ...row, code: data.code } }); } catch { /* account copy is already saved */ }
+    }
     return data;
   }
   for (let attempt = 0; attempt < 2; attempt += 1) {
@@ -183,11 +194,19 @@ export async function checkChartColumns(labels) {
   }
 }
 
-export async function removeChart(id) {
+export async function removeChart(id, code) {
+  // Always drop the local copy, so a logged-out chart actually disappears.
+  const charts = localList().filter((c) => c.id !== id && c.code !== code);
+  localSave(charts);
+  // Tell the server so the public link dies too.
+  if (code) {
+    try { await api(`/api/charts/code/${encodeURIComponent(code)}`, { method: 'DELETE' }); } catch { /* still gone locally */ }
+  }
   const client = await supabaseClient();
-  if (!client) throw new Error('cloud not configured');
-  const { error } = await client.from('size_charts').delete().eq('id', id);
-  if (error) throw error;
+  if (client && (await hasSession()) && id) {
+    const { error } = await client.from('size_charts').delete().eq('id', id);
+    if (error && !notSetUp(error)) throw error;
+  }
 }
 
 /**

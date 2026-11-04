@@ -225,3 +225,18 @@ chartRoutes.post('/', ah(async (req, res) => {
   charts.set(key, list);
   res.json(i >= 0 ? list[i] : row);
 }));
+
+chartRoutes.delete('/code/:code', ah(async (req, res) => {
+  const code = String(req.params.code || '').trim();
+  if (!code) throw new HttpError(400, 'Missing chart code');
+  if (supabaseConfigured()) {
+    const { error } = await db().from('size_charts').delete().eq('code', code);
+    if (error) throw new HttpError(500, error.message);
+  }
+  for (const [key, list] of charts) {
+    const next = list.filter((c) => c.code !== code);
+    if (next.length !== list.length) charts.set(key, next);
+  }
+  res.json({ ok: true });
+}));
+

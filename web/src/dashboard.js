@@ -878,7 +878,7 @@ listEl.addEventListener('click', async (event) => {
       if (!(await confirmDelete(chart))) return;
       button.disabled = true;
       try {
-        await removeChart(chart.id);
+        await removeChart(chart.id, chart.code);
         await refresh();
         if (editingId === chart.id) resetForm();
         setStatus(`${chart.name} deleted.`, 'ok');
