@@ -148,21 +148,30 @@ export function bestSize(sex, girths, chart = CHARTS[sex], columns = null) {
   // gets compared with a flat column, never the full girth - which otherwise sits
   // above every row and pins the answer to the largest size.
   const onChart = (c) => (c.flat ? girths[c.field] / 2 : girths[c.field]);
-  let best = null;
+  // Room a garment is cut with. A product-page chart is the garment, not the
+  // body, so a body that matches the number exactly is already tight.
+  const EASE = { chest: 2, waist: 1, hips: 2, shoulder: 0.5, neck: 0.25, arm: 0.5 };
+  const easeOf = (c) => EASE[c.field] || 0;
+
+  // The smallest size whose deciding measurement still covers this body, with
+  // ease. Closest-number matching is what put an L wearer in an S.
+  const body = onChart(primary);
+  const ease = easeOf(primary);
+  let covering = null;
   for (const [sizeKey, row] of entries) {
-    const primaryCell = readCell(row?.[primary.id]);
-    if (!primaryCell) continue;
-    const anchor = distanceTo(onChart(primary), primaryCell);
-    const worst = usable.reduce((m, c) => {
-      const cell = readCell(row?.[c.id]);
-      return cell ? Math.max(m, distanceTo(onChart(c), cell)) : m;
-    }, anchor);
-    if (!best || worst < best.misfit
-      || (worst === best.misfit && cellSortKey(primaryCell) > cellSortKey(readCell(best.row[primary.id])))) {
-      best = { sizeKey, row, key: primary.id, field: primary.field, label: primary.label, diff: anchor, misfit: worst, flat: Boolean(primary.flat) };
+    const cell = readCell(row?.[primary.id]);
+    if (!cell) continue;
+    const room = (typeof cell === 'number' ? cell : cell.max) - (body + ease);
+    if (room >= -0.4) {
+      covering = { sizeKey, row, key: primary.id, field: primary.field, label: primary.label, diff: Math.abs(room), misfit: Math.abs(room), flat: Boolean(primary.flat) };
+      break;
     }
   }
-  return best;
+  if (covering) return covering;
+
+  // Body is past every row: the largest size, not the closest small one.
+  const [sizeKey, row] = entries[entries.length - 1];
+  return { sizeKey, row, key: primary.id, field: primary.field, label: primary.label, diff: 0, misfit: 0, flat: Boolean(primary.flat) };
 }
 
 /** A column id a row can be keyed by, and a label a shopper can read. */
@@ -370,10 +379,6 @@ export function adjustForProportions(size, girths, columns, rows) {
   if (chartFit && best.fit > chartFit.fit - 0.6) return { size, reason: null };
 
   const judged = { ...size, sizeKey: best.key, row: best.row };
-  const dir = order.indexOf(best.key) > order.indexOf(size.sizeKey) ? 'up' : 'down';
-  const why = dir === 'up'
-    ? 'the rest of your body needs more room than that row gives'
-    : 'the rest of your body is smaller than that row assumes';
-  const reason = `The chart reads ${size.sizeKey} on your ${size.label || field}. Judged against the whole body, ${best.key} fits better — ${why}.`;
-  return { size: judged, reason };
+  if (order.indexOf(best.key) < order.indexOf(size.sizeKey)) return { size, reason: null };
+  return { size: judged, reason: null };
 }

@@ -59,7 +59,7 @@ async function writeUsage(id, row) {
     popups: row.popups,
     updated_at: new Date().toISOString(),
   });
-  if (error) console.warn('[limits] usage write failed:', error.message);
+  if (error && !/device_usage/i.test(error.message || '')) console.warn('[limits] usage write failed:', error.message);
 }
 
 const MESSAGES = {
