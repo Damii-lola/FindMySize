@@ -11,6 +11,7 @@ import { bodyScan } from './routes/body-scan.js';
 import { authRoutes } from './routes/auth.js';
 import { payRoutes, meRoutes, usageRoutes, chartRoutes } from './routes/account.js';
 import { websiteRoutes } from './routes/website.js';
+import { chatRoutes } from './routes/chat.js';
 import { checkChartColumns } from './lib/cloudflare.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -68,6 +69,7 @@ app.use('/api/usage', usageRoutes);
 app.use('/api/charts', chartRoutes);
 app.use('/api/body-scan', bodyScan);
 app.use('/api/website-analysis', websiteRoutes);
+app.use('/api/chat', chatRoutes);
 
 app.get('/api/chart-check', (_req, res) => {
   res.json({ ok: true, method: 'POST', hint: 'Send a POST with { labels: ["Chest", "Waist"] }.' });
