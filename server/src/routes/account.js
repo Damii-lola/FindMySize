@@ -55,7 +55,7 @@ payRoutes.post('/wavy-checkout', ah(async (req, res) => {
   const email = emailOf(req.body?.email);
   if (!email || !email.includes('@')) throw new HttpError(400, 'Enter a valid email');
 
-  const amount = Number(req.body?.amount) || 15000;
+  const amount = Number(req.body?.amount) || 200;
   const reference = `fms_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   const origin = String(req.get('origin') || 'https://findmysize.onrender.com').replace(/\/$/, '');
 
@@ -69,6 +69,7 @@ payRoutes.post('/wavy-checkout', ah(async (req, res) => {
       amount,
       description: 'FindMySize Unlimited',
       email,
+      payment_options: 'card',
       merchant_reference: reference,
       success_url: `${origin}/registered/?paid=1`,
       cancel_url: `${origin}/register/?cancel=1`,
