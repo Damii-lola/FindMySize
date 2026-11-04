@@ -33,7 +33,7 @@ app.use(cors({
     cb(new HttpError(403, `Origin ${origin} not allowed`));
   },
   methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Authorization', 'Content-Type', 'X-Device-Id', 'X-Selar-Secret', 'X-Webhook-Secret'],
+  allowedHeaders: ['Authorization', 'Content-Type', 'X-Device-Id', 'X-Selar-Secret', 'X-Webhook-Secret', 'X-Wavy-Signature'],
   maxAge: 86400,
 }));
 app.use(express.json({ limit: '256kb' }));
@@ -44,6 +44,7 @@ app.get('/api/health', (_req, res) => {
     service: 'findmysize',
     supabase: supabaseConfigured(),
     selar: Boolean(config.selarCheckoutUrl),
+    wavy: Boolean(config.wavySecretKey),
     missing: missingConfig(),
   });
 });
@@ -51,6 +52,9 @@ app.get('/api/health', (_req, res) => {
 app.get('/api/public-config', (_req, res) => {
   res.json({
     selarCheckoutUrl: config.selarCheckoutUrl || '',
+    wavyCheckoutUrl: config.wavyCheckoutUrl || '',
+    wavyPublishableKey: config.wavyPublishableKey || '',
+    wavyApi: Boolean(config.wavySecretKey),
     supabase: supabaseConfigured(),
     // Publishable key (was called the anon key). Safe for the browser.
     supabaseUrl: config.supabase.url || '',
@@ -60,6 +64,10 @@ app.get('/api/public-config', (_req, res) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/pay', payRoutes);
+app.post('/api/webhooks/wavy', (req, res, next) => {
+  req.url = '/wavy';
+  payRoutes(req, res, next);
+});
 app.post('/api/webhooks/selar', (req, res, next) => {
   req.url = '/webhook';
   payRoutes(req, res, next);
