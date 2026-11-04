@@ -390,3 +390,32 @@ export function fromAnalysis(c, found) {
   if (found.fontFamily) c.theme.font = fontFromGuess(found.fontFamily);
   return c;
 }
+
+/* ---------- design codes ---------- */
+
+const DESIGN_PREFIX = 'fms1.';
+
+/** The whole look as one copyable code. */
+export function encodeDesign(raw) {
+  const cfg = normalizePopup(raw);
+  const json = JSON.stringify(cfg);
+  const b64 = btoa(unescape(encodeURIComponent(json)))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+  return DESIGN_PREFIX + b64;
+}
+
+/** A design code back into a full, safe config. Throws if the code is not ours. */
+export function decodeDesign(code) {
+  const raw = String(code || '').trim();
+  if (!raw.startsWith(DESIGN_PREFIX)) throw new Error('That is not a design code.');
+  const b64 = raw.slice(DESIGN_PREFIX.length).replace(/-/g, '+').replace(/_/g, '/');
+  const pad = b64 + '='.repeat((4 - (b64.length % 4)) % 4);
+  let json;
+  try { json = decodeURIComponent(escape(atob(pad))); }
+  catch { throw new Error('That design code could not be read.'); }
+  let parsed;
+  try { parsed = JSON.parse(json); }
+  catch { throw new Error('That design code could not be read.'); }
+  if (!parsed || typeof parsed !== 'object') throw new Error('That design code could not be read.');
+  return normalizePopup(parsed);
+}

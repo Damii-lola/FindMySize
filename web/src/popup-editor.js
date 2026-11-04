@@ -10,7 +10,7 @@
  * Nothing is saved until "Save"; closing with unsaved changes asks first.
  */
 import {
-  buttonAttributeString, DEFAULTS, effectiveColours, FONTS, hex6, normalizePopup, readableOn,
+  buttonAttributeString, DEFAULTS, decodeDesign, effectiveColours, encodeDesign, FONTS, hex6, normalizePopup, readableOn,
 } from './popup-config.js';
 
 /** One-click starting points: the whole look in one go. */
@@ -289,6 +289,56 @@ export function openPopupEditor({ chart, siteUrl, onSave, toast }) {
     ];
   }
 
+
+  function designCodeControls() {
+    const out = el('textarea', {
+      class: 'pe-input', rows: 3, readonly: 'true',
+      placeholder: 'Generate a code to copy this look.',
+      'aria-label': 'Design code',
+    });
+    const gen = el('button', { class: 'btn btn--primary btn--small', type: 'button', text: 'Generate design code' });
+    gen.addEventListener('click', async () => {
+      const code = encodeDesign(cfg);
+      out.value = code;
+      try {
+        await navigator.clipboard.writeText(code);
+        toast('Design code copied.', 'ok');
+      } catch {
+        out.focus();
+        out.select();
+        toast('Design code ready — copy it from the box.', 'ok');
+      }
+    });
+
+    const input = el('textarea', {
+      class: 'pe-input', rows: 3,
+      placeholder: 'Paste a design code here.',
+      'aria-label': 'Enter design code',
+    });
+    const apply = el('button', { class: 'btn btn--ghost btn--small', type: 'button', text: 'Apply design code' });
+    apply.addEventListener('click', () => {
+      try {
+        const next = decodeDesign(input.value);
+        edit((c) => {
+          c.theme = next.theme;
+          c.button = next.button;
+          c.record = next.record;
+          c.results = next.results;
+        }, { rebuild: true });
+        toast('Design applied. The popup now matches that code.', 'ok');
+      } catch (err) {
+        toast(err.message || 'That design code could not be read.', 'error');
+      }
+    });
+
+    return [
+      field('This popup’s code', out, 'Copies the whole look — colours, type, button, and the words on every screen.'),
+      el('div', { class: 'pe-row' }, gen),
+      field('Use another popup’s code', input, 'Paste a code from another chart. Everything here becomes that design.'),
+      el('div', { class: 'pe-row' }, apply),
+    ];
+  }
+
   function renderControls() {
     const scroll = side.scrollTop;
     const phaseBody = phase === 0 ? buttonControls() : phase === 1 ? recordControls() : resultsControls();
@@ -306,6 +356,7 @@ export function openPopupEditor({ chart, siteUrl, onSave, toast }) {
         onReset: () => edit((c) => { c.theme = { ...DEFAULTS.theme }; }, { rebuild: true }),
         resetLabel: 'Reset',
       }),
+      section('Design code', designCodeControls(), { open: false }),
     );
     side.scrollTop = scroll;
   }
