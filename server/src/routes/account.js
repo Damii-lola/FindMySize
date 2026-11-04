@@ -121,6 +121,35 @@ payRoutes.post('/wavy', ah(async (req, res) => {
   console.log(`[wavy] activation code issued for ${email}: ${code}`);
 }));
 
+
+payRoutes.post('/wavy-claim', ah(async (req, res) => {
+  const email = emailOf(req.body?.email);
+  const reference = String(req.body?.reference || '');
+  if (!email || !email.includes('@')) throw new HttpError(400, 'Enter a valid email');
+
+  // If we already issued a code for this email, return it
+  const existing = codes.get(email);
+  if (existing) return res.json({ ok: true, code: existing, already: true });
+
+  // Verify with Wavy if we have a reference
+  if (reference && config.wavySecretKey) {
+    const check = await fetch(`${config.wavyApiBase}/api/gateway/v1/transactions/${encodeURIComponent(reference)}`, {
+      headers: { Authorization: `Bearer ${config.wavySecretKey}` },
+    }).catch(() => null);
+    if (check && check.ok) {
+      const tx = await check.json().catch(() => ({}));
+      const status = String(tx.status || tx.data?.status || '').toLowerCase();
+      if (!status.includes('success') && !status.includes('completed') && tx.paid !== true) {
+        throw new HttpError(402, 'Payment not confirmed yet');
+      }
+    }
+  }
+
+  const code = await issueCode(email);
+  res.json({ ok: true, code });
+  console.log(`[wavy-claim] code issued for ${email}: ${code}`);
+}));
+
 payRoutes.post('/dev-claim', ah(async (req, res) => {
   if (process.env.NODE_ENV === 'production') throw new HttpError(404, 'Not found');
   const email = emailOf(req.body?.email);
