@@ -26,30 +26,7 @@
       .activate-card h2 { margin: 0 0 8px; font-size: 1.6rem; }
     </style>
     <script type="module" crossorigin src="/FindMySize/assets/register--r018A-O.js"></script>
-<script type="module">
-  const btn = document.getElementById('activate-btn');
-  if (btn) {
-    btn.addEventListener('click', async (e) => {
-      const email = document.getElementById('otp-email')?.textContent || '';
-      if (!email.includes('@')) return;
-      e.preventDefault();
-      try {
-        const cfg = await (await fetch('https://findmysize.onrender.com/api/public-config')).json();
-        if (!cfg.wavyApi) return;
-        const res = await fetch('https://findmysize.onrender.com/api/pay/wavy-checkout', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email }),
-        });
-        const data = await res.json();
-        if (!res.ok || !data.url) throw new Error(data.error || 'Could not start checkout');
-        window.location.href = data.url;
-      } catch (err) {
-        alert(err.message || 'Checkout failed. Try again.');
-      }
-    });
-  }
-</script>
+
     <link rel="modulepreload" crossorigin href="/FindMySize/assets/modulepreload-polyfill-B5Qt9EMX.js">
     <link rel="stylesheet" crossorigin href="/FindMySize/assets/auth-CAE-0p9E.css">
     <link rel="stylesheet" crossorigin href="/FindMySize/assets/theme-B_KWcFXd.css">
@@ -221,6 +198,43 @@
   </main>
 
   <script src="/FindMySize/chat.js" defer></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var btn = document.getElementById('activate-btn');
+  if (!btn) return;
+  btn.addEventListener('click', async function () {
+    var emailEl = document.getElementById('otp-email');
+    var email = (emailEl && emailEl.textContent || '').trim();
+    if (email.indexOf('@') === -1) {
+      alert('Confirm your email first.');
+      return;
+    }
+    btn.disabled = true;
+    var label = btn.textContent;
+    btn.textContent = 'Opening payment…';
+    try {
+      var cfg = await (await fetch('https://findmysize.onrender.com/api/public-config')).json();
+      if (!cfg.wavyApi) {
+        location.href = (cfg.selarCheckoutUrl || 'https://selar.com/1w89133gya') + '?email=' + encodeURIComponent(email);
+        return;
+      }
+      var res = await fetch('https://findmysize.onrender.com/api/pay/wavy-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email }),
+      });
+      var data = await res.json();
+      if (!res.ok || !data.url) throw new Error(data.error || 'Could not start checkout');
+      location.href = data.url;
+    } catch (err) {
+      alert(err.message || 'Checkout failed. Try again.');
+      btn.disabled = false;
+      btn.textContent = label;
+    }
+  });
+});
+</script>
 </body>
 </html><script>
 document.addEventListener('DOMContentLoaded', () => {
@@ -283,30 +297,7 @@ document.addEventListener('DOMContentLoaded', () => {
       .activate-card h2 { margin: 0 0 8px; font-size: 1.6rem; }
     </style>
     <script type="module" crossorigin src="/FindMySize/assets/register--r018A-O.js"></script>
-<script type="module">
-  const btn = document.getElementById('activate-btn');
-  if (btn) {
-    btn.addEventListener('click', async (e) => {
-      const email = document.getElementById('otp-email')?.textContent || '';
-      if (!email.includes('@')) return;
-      e.preventDefault();
-      try {
-        const cfg = await (await fetch('https://findmysize.onrender.com/api/public-config')).json();
-        if (!cfg.wavyApi) return;
-        const res = await fetch('https://findmysize.onrender.com/api/pay/wavy-checkout', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email }),
-        });
-        const data = await res.json();
-        if (!res.ok || !data.url) throw new Error(data.error || 'Could not start checkout');
-        window.location.href = data.url;
-      } catch (err) {
-        alert(err.message || 'Checkout failed. Try again.');
-      }
-    });
-  }
-</script>
+
     <link rel="modulepreload" crossorigin href="/FindMySize/assets/modulepreload-polyfill-B5Qt9EMX.js">
     <link rel="stylesheet" crossorigin href="/FindMySize/assets/auth-CAE-0p9E.css">
     <link rel="stylesheet" crossorigin href="/FindMySize/assets/theme-B_KWcFXd.css">
@@ -478,5 +469,42 @@ document.addEventListener('DOMContentLoaded', () => {
   </main>
 
   <script src="/FindMySize/chat.js" defer></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var btn = document.getElementById('activate-btn');
+  if (!btn) return;
+  btn.addEventListener('click', async function () {
+    var emailEl = document.getElementById('otp-email');
+    var email = (emailEl && emailEl.textContent || '').trim();
+    if (email.indexOf('@') === -1) {
+      alert('Confirm your email first.');
+      return;
+    }
+    btn.disabled = true;
+    var label = btn.textContent;
+    btn.textContent = 'Opening payment…';
+    try {
+      var cfg = await (await fetch('https://findmysize.onrender.com/api/public-config')).json();
+      if (!cfg.wavyApi) {
+        location.href = (cfg.selarCheckoutUrl || 'https://selar.com/1w89133gya') + '?email=' + encodeURIComponent(email);
+        return;
+      }
+      var res = await fetch('https://findmysize.onrender.com/api/pay/wavy-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email }),
+      });
+      var data = await res.json();
+      if (!res.ok || !data.url) throw new Error(data.error || 'Could not start checkout');
+      location.href = data.url;
+    } catch (err) {
+      alert(err.message || 'Checkout failed. Try again.');
+      btn.disabled = false;
+      btn.textContent = label;
+    }
+  });
+});
+</script>
 </body>
 </html>
