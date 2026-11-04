@@ -670,7 +670,7 @@ function renderVerdict(data) {
   verdictSize.textContent = size || '';
   verdictFor.textContent = name ? `for ${name}` : '';
   verdictNote.textContent = size
-    ? (data.sizeReason || `Worked out from ${from} against this garment's own chart, not a standard one.`)
+    ? `Worked out from ${from} against this garment's own chart, not a standard one.`
     : `This clip did not show a straight-on front view with your arms clear of your sides, so there was nothing to work a size out from${name ? ` for ${name}` : ''}.`;
 
   // The row that was handed to them, in the store's own numbers and words. The
