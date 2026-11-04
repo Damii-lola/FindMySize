@@ -204,6 +204,8 @@ export function analyzeGeometry(measured, opts = {}) {
     // is the table this body is laid against; it is never used to measure
     // anybody, so it cannot flatter a clip into a size.
     chart: opts.chart || undefined,
+    usage: opts.usage || undefined,
+    chartCode: opts.chartCode || undefined,
     // A known-size object the user marked on one frame. It outweighs the head
     // ruler, and it belongs to that frame alone: the camera moves, so a scale
     // that was right one moment is not right the next.

@@ -798,9 +798,9 @@ async function runAnalysis() {
           setStatus(`Sending ${measured.frames.length} measurements… · ${since(startedAt)}`, 'busy');
           data = await analyzeGeometry(measured, {
             gender: chosenGender,
-            // The garment the shopper followed a link to, when there is one: the
-            // size they are shown is the size of the thing they want to buy.
             chart,
+            usage: (livePopup || chartCode) ? 'popup' : undefined,
+            chartCode: chartCode || undefined,
             // The user's own known size, if they marked one. It is the strongest
             // anchor there is, and it is applied across the whole clip.
             references: markedReference ? [markedReference] : [],
@@ -866,8 +866,8 @@ async function runAnalysis() {
         return analyzeBody(frames, {
           gender: chosenGender,
           chart,
-          usage: livePopup ? 'popup' : undefined,
-          chartCode: livePopup ? chartCode : undefined,
+          usage: (livePopup || chartCode) ? 'popup' : undefined,
+          chartCode: chartCode || undefined,
           onTick: (s) => setStatus(`Analyzing ${frames.length} frames on the server… ${s}s`, 'busy'),
         });
       };
@@ -880,8 +880,8 @@ async function runAnalysis() {
           to: toSec,
           gender: chosenGender,
           chart,
-          usage: livePopup ? 'popup' : undefined,
-          chartCode: livePopup ? chartCode : undefined,
+          usage: (livePopup || chartCode) ? 'popup' : undefined,
+          chartCode: chartCode || undefined,
           uploadBudgetMs: UPLOAD_BUDGET_MS,
           onProgress: (f) => setStatus(`Sending your clip (${mb} MB)… ${Math.round(f * 100)}% · ${since(startedAt)}`, 'busy'),
           onUploaded: () => setStatus(`Clip sent — reading it on the server… · ${since(startedAt)}`, 'busy'),

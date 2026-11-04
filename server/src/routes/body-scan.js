@@ -2094,16 +2094,18 @@ async function finishScan(req, res, { frames, rejected, unreadable, failures, cl
   // nothing to keep. Timing and provenance are enough to debug the pipeline.
   log(`done in ${result.debug.elapsedMs}ms - basis=${sizeBasis} source=${sizeSource} rows=${catalogue.items.length}`);
 
-  const isPopup = String(req.body?.usage || req.query?.usage || '') === 'popup';
+  const chartRaw = (() => {
+    try { return typeof req.body?.chart === 'string' ? JSON.parse(req.body.chart) : req.body?.chart; }
+    catch { return null; }
+  })();
+  const isPopup = String(req.body?.usage || req.query?.usage || '') === 'popup' || Boolean(chartRaw);
   const gate = await consume(req, isPopup ? 'popups' : 'scans');
   if (!gate.ok) throw new HttpError(402, gate.error);
-  if (isPopup && supabaseConfigured()) {
-    const code = String(req.body?.chartCode || req.query?.chartCode || input?.code || '').trim();
-    if (code) {
-      const { data } = await db().from('size_charts').select('popup_uses').eq('code', code).maybeSingle();
-      if (data) {
-        await db().from('size_charts').update({ popup_uses: Number(data.popup_uses || 0) + 1 }).eq('code', code);
-      }
+  const code = String(req.body?.chartCode || req.query?.chartCode || chartRaw?.code || '').trim();
+  if (isPopup && code && supabaseConfigured()) {
+    const { data, error } = await db().from('size_charts').select('popup_uses').eq('code', code).maybeSingle();
+    if (!error && data) {
+      await db().from('size_charts').update({ popup_uses: Number(data.popup_uses || 0) + 1 }).eq('code', code);
     }
   }
   res.json(result);
