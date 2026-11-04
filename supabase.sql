@@ -17,6 +17,7 @@ create table if not exists public.size_charts (
   unit       text not null default 'in' check (unit in ('in', 'cm')),
   columns    jsonb not null default '[]'::jsonb,
   rows       jsonb not null default '[]'::jsonb,
+  popup      jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -72,3 +73,7 @@ create table if not exists public.device_usage (
   updated_at timestamptz not null default now()
 );
 alter table public.device_usage enable row level security;
+
+
+-- popup settings on a chart (safe to re-run)
+alter table public.size_charts add column if not exists popup jsonb not null default '{}'::jsonb;

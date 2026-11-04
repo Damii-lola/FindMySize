@@ -137,10 +137,18 @@ chartRoutes.get('/code/:code', ah(async (req, res) => {
   const code = String(req.params.code || '').trim();
   if (!code) throw new HttpError(400, 'Missing chart code');
   if (supabaseConfigured()) {
-    const { data, error } = await db().from('size_charts')
+    let { data, error } = await db().from('size_charts')
       .select('code, name, sex, unit, columns, rows, popup')
       .eq('code', code)
       .maybeSingle();
+    // popup column may not exist yet on older databases — retry without it
+    if (error && /popup/i.test(error.message || '')) {
+      ({ data, error } = await db().from('size_charts')
+        .select('code, name, sex, unit, columns, rows')
+        .eq('code', code)
+        .maybeSingle());
+      if (data) data.popup = {};
+    }
     if (error) throw new HttpError(500, error.message);
     if (data) return res.json(data);
   }
