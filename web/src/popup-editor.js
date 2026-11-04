@@ -9,9 +9,8 @@
  *
  * Nothing is saved until "Save"; closing with unsaved changes asks first.
  */
-import { api } from './services/api.js';
 import {
-  buttonAttributeString, DEFAULTS, effectiveColours, FONTS, fromAnalysis, hex6, normalizePopup, readableOn,
+  buttonAttributeString, DEFAULTS, effectiveColours, FONTS, hex6, normalizePopup, readableOn,
 } from './popup-config.js';
 
 /** One-click starting points: the whole look in one go. */
@@ -290,37 +289,6 @@ export function openPopupEditor({ chart, siteUrl, onSave, toast }) {
     ];
   }
 
-  /* ---- match my website (the AI) ---- */
-  function websiteControls() {
-    const urlInput = el('input', { class: 'pe-input', type: 'url', placeholder: 'yourstore.com', autocomplete: 'off' });
-    const go = el('button', { class: 'btn btn--primary btn--small', type: 'button', text: 'Match my site' });
-    const run = async () => {
-      let url = urlInput.value.trim();
-      if (!url) { toast('Enter your homepage address first.', 'error'); return; }
-      if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
-      urlInput.value = url;
-      go.disabled = true;
-      go.textContent = 'Reading your site…';
-      try {
-        const found = await api('/api/website-analysis/analyze', { method: 'POST', body: { url } });
-        if (!found?.primaryColor && !found?.accentColor) throw new Error('No colours came back from that site.');
-        edit((c) => fromAnalysis(c, found), { rebuild: true });
-        toast('Colours taken from your site. Adjust anything you like.', 'ok');
-      } catch (err) {
-        toast(err.message || 'Could not read that site.', 'error');
-      } finally {
-        go.disabled = false;
-        go.textContent = 'Match my site';
-      }
-    };
-    go.addEventListener('click', run);
-    urlInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); run(); } });
-    return [
-      field('Your homepage', urlInput, 'Paste your store address. We read its colours and set the popup to match.'),
-      el('div', { class: 'pe-row' }, go),
-    ];
-  }
-
   function renderControls() {
     const scroll = side.scrollTop;
     const phaseBody = phase === 0 ? buttonControls() : phase === 1 ? recordControls() : resultsControls();
@@ -333,7 +301,6 @@ export function openPopupEditor({ chart, siteUrl, onSave, toast }) {
     };
     side.replaceChildren(
       el('p', { class: 'pe-phase-hint', text: PHASES[phase].hint }),
-      section('Match my website', websiteControls(), { open: true }),
       section(phase === 0 ? 'The button' : phase === 1 ? 'The record screen' : 'The results screen', phaseBody, { onReset: phaseReset, resetLabel: 'Reset' }),
       section('Look of the popup', lookControls(), {
         onReset: () => edit((c) => { c.theme = { ...DEFAULTS.theme }; }, { rebuild: true }),
