@@ -7,6 +7,7 @@
  */
 import './nav.js';
 import { API_URL } from './services/config.js';
+import { requestPasswordReset, updatePassword, getSession } from './services/auth.js';
 
 const SCANNER = '../size/';
 const API = (API_URL || (location.origin.includes('github.io') ? 'https://findmysize.onrender.com' : location.origin)).replace(/\/$/, '');
@@ -134,6 +135,80 @@ codeBack?.addEventListener('click', () => {
   pendingEmail = '';
   showLogin();
 });
+
+
+const forgotBtn = byId('forgot-btn');
+const recoverStep = byId('auth-recover');
+const sentStep = byId('auth-sent');
+const sentNote = byId('sent-note');
+const recoveryForm = byId('recovery-form');
+
+function showStep(which) {
+  if (entryEl) entryEl.hidden = which !== 'entry';
+  if (codeStep) codeStep.hidden = which !== 'code';
+  if (sentStep) sentStep.hidden = which !== 'sent';
+  if (recoverStep) recoverStep.hidden = which !== 'recover';
+}
+
+forgotBtn?.addEventListener('click', async () => {
+  const email = byId('login-email')?.value?.trim() || '';
+  if (!email) return say('Enter your email first', 'err');
+  setBusy(true, 'Sending the reset email…');
+  try {
+    await requestPasswordReset(email);
+    if (titleEl) titleEl.textContent = 'Check your email';
+    if (leadEl) leadEl.textContent = 'A link to choose a new password is on its way.';
+    if (sentNote) sentNote.textContent = `We sent a reset link to ${email}. Open it on this device.`;
+    showStep('sent');
+    say('');
+  } catch (err) {
+    say(err.message || 'Could not send the reset email', 'err');
+  } finally {
+    setBusy(false);
+  }
+});
+
+byId('sent-back')?.addEventListener('click', () => {
+  showLogin();
+  showStep('entry');
+});
+
+byId('sent-resend')?.addEventListener('click', () => forgotBtn?.click());
+
+recoveryForm?.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const password = byId('recovery-password')?.value || '';
+  const confirm = byId('recovery-confirm')?.value || '';
+  if (password.length < 6) return say('Password must be at least 6 characters', 'err');
+  if (password !== confirm) return say('Passwords do not match', 'err');
+  setBusy(true, 'Setting the password…');
+  try {
+    await updatePassword(password);
+    say('Password set. Log in with it.');
+    showLogin();
+    showStep('entry');
+    if (titleEl) titleEl.textContent = 'Log in';
+  } catch (err) {
+    say(err.message || 'Could not set the password', 'err');
+  } finally {
+    setBusy(false);
+  }
+});
+
+// A reset link lands here with ?reset=1 and a session in the URL.
+const isReset = new URLSearchParams(location.search).get('reset') === '1'
+  || location.hash.includes('type=recovery');
+if (isReset) {
+  getSession().then((session) => {
+    if (!session) {
+      say('That reset link has expired. Ask for a new one.', 'err');
+      return;
+    }
+    if (titleEl) titleEl.textContent = 'Choose a new password';
+    if (leadEl) leadEl.textContent = 'This replaces the password on your account.';
+    showStep('recover');
+  });
+}
 
 // Start on the login form. Signup lives on /register.
 showLogin();
