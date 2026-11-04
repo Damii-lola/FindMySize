@@ -14,7 +14,8 @@ export default defineConfig({
     chunkSizeWarningLimit: 900,
     rollupOptions: {
       input: {
-        // Home is the size page
+        // Home is the landing page
+        index: page('index.html'),
         size: page('size/index.html'),
         dashboard: page('dashboard/index.html'),
         settings: page('settings/index.html'),
@@ -22,6 +23,9 @@ export default defineConfig({
         register: page('register/index.html'),
         registered: page('registered/index.html'),
         shop: page('shop/index.html'),
+        pricing: page('pricing/index.html'),
+        privacy: page('privacy/index.html'),
+        terms: page('terms/index.html'),
       },
       output: { manualChunks: { three: ['three'], supabase: ['@supabase/supabase-js'] } },
     },
