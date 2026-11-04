@@ -362,14 +362,22 @@ export function fontFromGuess(guess) {
 /**
  * Same pairing the Look presets use. Clean is a light ground with a dark accent.
  * Plum is a dark ground with a bright accent. The wash only shows when those differ.
+ * We force the separation so the radial gradient is always clearly visible.
  */
 function fitContrast(_background, _text, accent) {
   const brand = accent || '#f0521f';
-  const light = luminance(brand) > 0.45;
+  const light = luminance(brand) > 0.42;
   if (light) {
-    return { background: '#f7f4ef', text: '#191411', accent: mix(brand, '#3a2418', 0.35) };
+    // Clean style: light ground, dark accent (wash is a visible soft shadow at the top)
+    const darkened = mix(brand, '#161616', 0.62);
+    const accentFinal = contrast(darkened, '#ffffff') < 4 ? '#161616' : darkened;
+    return { background: '#ffffff', text: '#161616', accent: accentFinal };
   }
-  return { background: mix(brand, '#120e12', 0.72), text: '#f4efe6', accent: mix(brand, '#ffffff', 0.22) };
+  // Plum style: dark ground, bright accent (wash is a visible coloured glow at the top)
+  const brightened = mix(brand, '#ffffff', 0.38);
+  const bg = mix(brand, '#120e12', 0.68);
+  const accentFinal = contrast(brightened, bg) < 3.5 ? mix(brand, '#ffffff', 0.55) : brightened;
+  return { background: bg, text: '#f4efe6', accent: accentFinal };
 }
 
 /** Apply a site's brand the same way a Look preset is applied. */
