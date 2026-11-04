@@ -273,43 +273,81 @@ function markFlatColumns(columns, rows) {
 }
 
 /**
- * A chart cannot list every body. Chest can say M while the shoulders are cut
- * for L. After the chart picks a row, look at proportions the chart did not
- * ask about and move one size when they would make that row too small.
+ * A chart cannot list every body. It picks a starting size from the columns the
+ * brand typed. Then the measurements the chart never asked about are checked,
+ * and the size moves up when one of them would make that row too small.
  *
- * Shoulder width over chest girth. A typical body sits near 0.44. Past 0.50,
- * or more than 1.75 inches above what that chest implies, the shoulders are
- * the limiting part and the next size up is the honest answer.
+ * Only a part that is too big moves the size. A narrow shoulder does not pull
+ * it down: the chest still has to fit. At most one size, so a stack of small
+ * disagreements cannot walk someone to the end of the chart.
+ *
+ * Tops (decided on chest, shoulder, neck or arm): wide shoulders, a thick
+ * upper arm, a thick neck.
+ * Bottoms (decided on waist or hips): hips much wider than the waist the
+ * chart sized on.
  */
+const TOP_FIELDS = new Set(['chest', 'shoulder', 'neck', 'arm']);
 const SHOULDER_PER_CHEST = 0.44;
-const SHOULDER_BROAD = 0.50;
-const SHOULDER_OVER_IN = 1.75;
+const ARM_PER_CHEST = 0.32;
+const NECK_PER_CHEST = 0.38;
 
 export function adjustForProportions(size, girths, columns, rows) {
   if (!size || !girths) return { size, reason: null };
   const cols = columns || [];
-  const scoredShoulder = cols.some((c) => c.measure === 'shoulder' || c.field === 'shoulder');
-  // The chart already compared shoulders. Do not second-guess a number it listed.
-  if (scoredShoulder) return { size, reason: null };
-
-  const chest = Number(girths.chest);
-  const shoulder = Number(girths.shoulder);
-  if (!Number.isFinite(chest) || !Number.isFinite(shoulder) || chest < 20) {
-    return { size, reason: null };
-  }
-  const expected = chest * SHOULDER_PER_CHEST;
-  const ratio = shoulder / chest;
-  const broad = ratio >= SHOULDER_BROAD || shoulder >= expected + SHOULDER_OVER_IN;
-  if (!broad) return { size, reason: null };
-
+  const listed = new Set(cols.map((c) => c.measure || c.field).filter(Boolean));
+  const field = size.field;
+  const isTop = TOP_FIELDS.has(field);
+  const isBottom = field === 'waist' || field === 'hips';
   const order = Object.keys(rows || {});
   const i = order.indexOf(size.sizeKey);
-  if (i < 0 || i >= order.length - 1) return { size, reason: null };
-  const nextKey = order[i + 1];
-  const nextRow = rows[nextKey];
-  if (!nextRow) return { size, reason: null };
+  const nextKey = i >= 0 && i < order.length - 1 ? order[i + 1] : null;
+  const nextRow = nextKey ? rows[nextKey] : null;
+
+  const n = (k) => {
+    const v = Number(girths[k]);
+    return Number.isFinite(v) ? v : null;
+  };
+  const chest = n('chest');
+  const shoulder = n('shoulder');
+  const arm = n('arm');
+  const neck = n('neck');
+  const waist = n('waist');
+  const hips = n('hips');
+
+  const reasons = [];
+
+  if (isTop && !listed.has('shoulder') && chest && shoulder && chest >= 20) {
+    if (shoulder / chest >= 0.50 || shoulder >= chest * SHOULDER_PER_CHEST + 1.75) {
+      reasons.push(`your shoulders are wide for a ${size.sizeKey}`);
+    }
+  }
+  if (isTop && !listed.has('arm') && chest && arm && chest >= 20) {
+    if (arm / chest >= 0.40 || arm >= chest * ARM_PER_CHEST + 2) {
+      reasons.push(`your upper arm is thick for a ${size.sizeKey}`);
+    }
+  }
+  if (isTop && !listed.has('neck') && chest && neck && chest >= 20) {
+    if (neck / chest >= 0.46 || neck >= chest * NECK_PER_CHEST + 1.5) {
+      reasons.push(`your neck is full for a ${size.sizeKey}`);
+    }
+  }
+  if (isBottom && !listed.has('hips') && waist && hips) {
+    if (hips >= waist + 10) {
+      reasons.push(`your hips are much wider than the waist a ${size.sizeKey} is cut for`);
+    }
+  }
+  // A top sized only on the chest, with hips the chart never saw, that would
+  // pull across the seat. Only when the drop is large.
+  if (isTop && !listed.has('hips') && chest && hips && hips >= chest + 6) {
+    reasons.push(`your hips are wide for a ${size.sizeKey} cut to the chest`);
+  }
+
+  if (!reasons.length || !nextRow) return { size, reason: null };
 
   const bumped = { ...size, sizeKey: nextKey, row: nextRow };
-  const reason = `Your ${size.label || 'chest'} fits ${size.sizeKey}, but your shoulders are wide for that size, so ${nextKey} will sit better across the back.`;
+  const why = reasons.length === 1
+    ? reasons[0]
+    : `${reasons.slice(0, -1).join(', ')} and ${reasons[reasons.length - 1]}`;
+  const reason = `Your ${size.label || field} fits ${size.sizeKey}, but ${why}, so ${nextKey} will sit better.`;
   return { size: bumped, reason };
 }
