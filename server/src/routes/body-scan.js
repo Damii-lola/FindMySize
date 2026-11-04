@@ -87,7 +87,7 @@ import { aiErrorMessage, authHeaders, classifyAiError, modelUrl, recordVision } 
 import { mistralChat, mistralConfigured } from '../lib/mistral.js';
 import { geminiChat, geminiConfigured } from '../lib/gemini.js';
 import { oaChat, oaConfigured, oaModel } from '../lib/openai-compat.js';
-import { bestSize, chartFromInput, CHARTS, chartKey, columnsFromRows } from '../lib/sizing.js';
+import { adjustForProportions, bestSize, chartFromInput, CHARTS, chartKey, columnsFromRows } from '../lib/sizing.js';
 import { measureField } from '../shared/measures.js';
 import { consume } from '../lib/limits.js';
 
@@ -1893,9 +1893,13 @@ async function finishScan(req, res, { frames, rejected, unreadable, failures, cl
   let size = null;
   let sizeBasis = null;
   let sizeSource = null;
+  let sizeReason = null;
   if (chart) {
     size = bestSize(sheet || 'male', adjusted, chart.rows, chart.columns);
     if (size) {
+      const fit = adjustForProportions(size, adjusted, chart.columns, chart.rows);
+      size = fit.size;
+      sizeReason = fit.reason;
       sizeSource = 'store';
       // The sheet basis is reported as the shopper's own answer, or not at all:
       // the chart decided the column, not the sheet.
@@ -2019,6 +2023,7 @@ async function finishScan(req, res, { frames, rejected, unreadable, failures, cl
         ? `This size is off ${chartName}\u2019s own chart, not a standard one.`
         : 'This size is off the store\u2019s own chart, not a standard one.');
     }
+    if (sizeReason) notes.push(sizeReason);
     // The size is picked off one girth. If that girth's front-to-back depth had
     // to be modelled rather than seen from the side, the size can honestly sit a
     // size either way â€” and saying so is better than sounding certain. Only the
@@ -2070,6 +2075,7 @@ async function finishScan(req, res, { frames, rejected, unreadable, failures, cl
       })),
     },
     size: size?.sizeKey || null,
+    sizeReason: sizeReason || null,
     sizeChart: size?.row || null,
     // True when the store's deciding column is a garment measured flat, so the
     // row beside the size is a half-circumference rather than a body girth.

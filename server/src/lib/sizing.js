@@ -271,3 +271,45 @@ function markFlatColumns(columns, rows) {
     if (Math.max(...nums) < floor) c.flat = true;
   }
 }
+
+/**
+ * A chart cannot list every body. Chest can say M while the shoulders are cut
+ * for L. After the chart picks a row, look at proportions the chart did not
+ * ask about and move one size when they would make that row too small.
+ *
+ * Shoulder width over chest girth. A typical body sits near 0.44. Past 0.50,
+ * or more than 1.75 inches above what that chest implies, the shoulders are
+ * the limiting part and the next size up is the honest answer.
+ */
+const SHOULDER_PER_CHEST = 0.44;
+const SHOULDER_BROAD = 0.50;
+const SHOULDER_OVER_IN = 1.75;
+
+export function adjustForProportions(size, girths, columns, rows) {
+  if (!size || !girths) return { size, reason: null };
+  const cols = columns || [];
+  const scoredShoulder = cols.some((c) => c.measure === 'shoulder' || c.field === 'shoulder');
+  // The chart already compared shoulders. Do not second-guess a number it listed.
+  if (scoredShoulder) return { size, reason: null };
+
+  const chest = Number(girths.chest);
+  const shoulder = Number(girths.shoulder);
+  if (!Number.isFinite(chest) || !Number.isFinite(shoulder) || chest < 20) {
+    return { size, reason: null };
+  }
+  const expected = chest * SHOULDER_PER_CHEST;
+  const ratio = shoulder / chest;
+  const broad = ratio >= SHOULDER_BROAD || shoulder >= expected + SHOULDER_OVER_IN;
+  if (!broad) return { size, reason: null };
+
+  const order = Object.keys(rows || {});
+  const i = order.indexOf(size.sizeKey);
+  if (i < 0 || i >= order.length - 1) return { size, reason: null };
+  const nextKey = order[i + 1];
+  const nextRow = rows[nextKey];
+  if (!nextRow) return { size, reason: null };
+
+  const bumped = { ...size, sizeKey: nextKey, row: nextRow };
+  const reason = `Your ${size.label || 'chest'} fits ${size.sizeKey}, but your shoulders are wide for that size, so ${nextKey} will sit better across the back.`;
+  return { size: bumped, reason };
+}
