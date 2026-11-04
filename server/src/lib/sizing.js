@@ -273,81 +273,107 @@ function markFlatColumns(columns, rows) {
 }
 
 /**
- * A chart cannot list every body. It picks a starting size from the columns the
- * brand typed. Then the measurements the chart never asked about are checked,
- * and the size moves up when one of them would make that row too small.
+ * The chart is evidence, not the verdict.
  *
- * Only a part that is too big moves the size. A narrow shoulder does not pull
- * it down: the chest still has to fit. At most one size, so a stack of small
- * disagreements cannot walk someone to the end of the chart.
- *
- * Tops (decided on chest, shoulder, neck or arm): wide shoulders, a thick
- * upper arm, a thick neck.
- * Bottoms (decided on waist or hips): hips much wider than the waist the
- * chart sized on.
+ * A strict reading of the brand's table picks a starting size. Then every size
+ * on that table is scored again for this body: the columns the brand listed
+ * count most, because that is how the garment is cut, and the parts the brand
+ * left out still count, because a shirt that fits the chest and binds at the
+ * shoulder is the wrong shirt. The size with the best overall fit is the one
+ * given. When that is not the chart's own pick, the reason says so.
  */
-const TOP_FIELDS = new Set(['chest', 'shoulder', 'neck', 'arm']);
-const SHOULDER_PER_CHEST = 0.44;
-const ARM_PER_CHEST = 0.32;
-const NECK_PER_CHEST = 0.38;
+const IMPLIED = {
+  shoulder: 0.44,
+  arm: 0.32,
+  neck: 0.38,
+  hips: 1.02,
+};
+const TOP = new Set(['chest', 'shoulder', 'neck', 'arm']);
+
+function num(v) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+function cellMid(cell) {
+  if (cell == null) return null;
+  if (typeof cell === 'number') return cell;
+  if (Number.isFinite(cell.min) && Number.isFinite(cell.max)) return (cell.min + cell.max) / 2;
+  return null;
+}
 
 export function adjustForProportions(size, girths, columns, rows) {
-  if (!size || !girths) return { size, reason: null };
+  if (!size || !girths || !rows) return { size, reason: null };
   const cols = columns || [];
   const listed = new Set(cols.map((c) => c.measure || c.field).filter(Boolean));
   const field = size.field;
-  const isTop = TOP_FIELDS.has(field);
-  const isBottom = field === 'waist' || field === 'hips';
-  const order = Object.keys(rows || {});
-  const i = order.indexOf(size.sizeKey);
-  const nextKey = i >= 0 && i < order.length - 1 ? order[i + 1] : null;
-  const nextRow = nextKey ? rows[nextKey] : null;
+  const isTop = TOP.has(field);
+  const order = Object.keys(rows);
+  if (order.length < 2) return { size, reason: null };
 
-  const n = (k) => {
-    const v = Number(girths[k]);
-    return Number.isFinite(v) ? v : null;
-  };
-  const chest = n('chest');
-  const shoulder = n('shoulder');
-  const arm = n('arm');
-  const neck = n('neck');
-  const waist = n('waist');
-  const hips = n('hips');
+  const chestCol = cols.find((c) => (c.measure || c.field) === 'chest');
+  const waistCol = cols.find((c) => (c.measure || c.field) === 'waist');
+  const anchorCol = chestCol || waistCol || cols.find((c) => c.id === size.key);
 
-  const reasons = [];
+  // How far this body sits from what a size implies, for a part the chart
+  // never printed. Closer is better. A missing number is not a vote.
+  function impliedGap(part, row) {
+    if (listed.has(part)) return null;
+    const body = num(girths[part]);
+    if (body == null) return null;
+    const anchor = anchorCol ? cellMid(row[anchorCol.id]) : null;
+    if (anchor == null) return null;
+    const ratio = IMPLIED[part];
+    if (!ratio) return null;
+    const base = part === 'hips' && waistCol ? cellMid(row[waistCol.id]) : anchor;
+    if (base == null) return null;
+    return Math.abs(body - base * ratio);
+  }
 
-  if (isTop && !listed.has('shoulder') && chest && shoulder && chest >= 20) {
-    if (shoulder / chest >= 0.50 || shoulder >= chest * SHOULDER_PER_CHEST + 1.75) {
-      reasons.push(`your shoulders are wide for a ${size.sizeKey}`);
+  const scored = order.map((key) => {
+    const row = rows[key];
+    let chart = 0;
+    let chartN = 0;
+    for (const c of cols) {
+      const f = c.measure || c.field;
+      if (!f) continue;
+      const body = num(girths[f]);
+      const cell = row[c.id];
+      if (body == null || cell == null) continue;
+      chart += distanceTo(c.flat ? body / 2 : body, readCell(cell));
+      chartN += 1;
     }
-  }
-  if (isTop && !listed.has('arm') && chest && arm && chest >= 20) {
-    if (arm / chest >= 0.40 || arm >= chest * ARM_PER_CHEST + 2) {
-      reasons.push(`your upper arm is thick for a ${size.sizeKey}`);
-    }
-  }
-  if (isTop && !listed.has('neck') && chest && neck && chest >= 20) {
-    if (neck / chest >= 0.46 || neck >= chest * NECK_PER_CHEST + 1.5) {
-      reasons.push(`your neck is full for a ${size.sizeKey}`);
-    }
-  }
-  if (isBottom && !listed.has('hips') && waist && hips) {
-    if (hips >= waist + 10) {
-      reasons.push(`your hips are much wider than the waist a ${size.sizeKey} is cut for`);
-    }
-  }
-  // A top sized only on the chest, with hips the chart never saw, that would
-  // pull across the seat. Only when the drop is large.
-  if (isTop && !listed.has('hips') && chest && hips && hips >= chest + 6) {
-    reasons.push(`your hips are wide for a ${size.sizeKey} cut to the chest`);
-  }
+    const chartAvg = chartN ? chart / chartN : 99;
 
-  if (!reasons.length || !nextRow) return { size, reason: null };
+    const extra = [];
+    if (isTop) {
+      for (const part of ['shoulder', 'arm', 'neck']) {
+        const g = impliedGap(part, row);
+        if (g != null) extra.push(g);
+      }
+    } else {
+      const g = impliedGap('hips', row);
+      if (g != null) extra.push(g);
+    }
+    const extraAvg = extra.length ? extra.reduce((a, b) => a + b, 0) / extra.length : 0;
+    // The garment's own numbers weigh more than a part it never listed.
+    const fit = chartAvg * 1.4 + extraAvg;
+    return { key, row, fit, chartAvg };
+  });
 
-  const bumped = { ...size, sizeKey: nextKey, row: nextRow };
-  const why = reasons.length === 1
-    ? reasons[0]
-    : `${reasons.slice(0, -1).join(', ')} and ${reasons[reasons.length - 1]}`;
-  const reason = `Your ${size.label || field} fits ${size.sizeKey}, but ${why}, so ${nextKey} will sit better.`;
-  return { size: bumped, reason };
+  scored.sort((a, b) => a.fit - b.fit);
+  const best = scored[0];
+  if (!best || best.key === size.sizeKey) return { size, reason: null };
+
+  const chartFit = scored.find((s) => s.key === size.sizeKey);
+  // Only overrule when the other size is clearly the better fit, not a coin toss.
+  if (chartFit && best.fit > chartFit.fit - 0.6) return { size, reason: null };
+
+  const judged = { ...size, sizeKey: best.key, row: best.row };
+  const dir = order.indexOf(best.key) > order.indexOf(size.sizeKey) ? 'up' : 'down';
+  const why = dir === 'up'
+    ? 'the rest of your body needs more room than that row gives'
+    : 'the rest of your body is smaller than that row assumes';
+  const reason = `The chart reads ${size.sizeKey} on your ${size.label || field}. Judged against the whole body, ${best.key} fits better — ${why}.`;
+  return { size: judged, reason };
 }
