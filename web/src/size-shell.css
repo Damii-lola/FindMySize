@@ -536,3 +536,14 @@ html:not(.embed) .free-tier-body {
   color: var(--pu-muted, rgba(245, 233, 214, 0.78));
 }
 html:not(.embed) .free-tier strong { color: var(--pu-text, #f5e9d6); }
+
+/* Live popup: the shopper came for a size. The tape-measure cards and the
+   working notes stay off the screen; they already informed the judgment. */
+.analysis.size-only .measure-groups,
+.analysis.size-only .notes,
+.analysis.size-only .estimate,
+.analysis.size-only .facts,
+.analysis.size-only .result-lead,
+.analysis.size-only .verdict-note,
+.analysis.size-only .verdict-row { display: none; }
+.analysis.size-only .result-kicker { display: none; }

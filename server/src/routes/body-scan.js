@@ -1960,17 +1960,14 @@ async function finishScan(req, res, { frames, rejected, unreadable, failures, cl
     notes.push('Your arm was not held clear of your body in any frame, so no tape could be taken around a limb.');
   }
   if (rejectedEverywhere.length || droppedByCheck.size) {
-    notes.push('One reading came out impossible for a human body in every frame that showed it, so it was left out rather than guessed.');
   }
   if (outOfRange.length) {
-    notes.push(`A reading came back outside what a human body can be (${outOfRange.join(', ')}), so it was left out rather than pulled to the edge of the range.`);
   }
   if (heightIn == null && (measured.chest || measured.waist || measured.hips)) {
     notes.push('Your feet were not in shot, so nothing that needs the floor could be read.');
   }
   if (headUnitsCorrection && Math.abs(headUnitsCorrection - 1) > 0.02) {
     const pct = Math.round(Math.abs(headUnitsCorrection - 1) * 100);
-    notes.push(`Your proportions read as an unusual head-to-body ratio, so the scale was corrected by ${pct}%.`);
   }
   if (clothing.items.length || clothing.fit) {
     // Say exactly what was taken off and from where: a number the user can check
@@ -1985,7 +1982,6 @@ async function finishScan(req, res, { frames, rejected, unreadable, failures, cl
       `${clothBits.length ? ` â€” ${clothBits.join(', and ')} for the fabric` : ''}.`
     );
   }
-  if (clothing.note) notes.push(clothing.note);
   // If the user marked something of a known size, say so: it is the difference
   // between a scale that was assumed and a scale that was measured.
   const marked = frames.map((f) => (f.references || [])[0]).find(Boolean);
@@ -2015,26 +2011,6 @@ async function finishScan(req, res, { frames, rejected, unreadable, failures, cl
     const at = String(size.label || 'chest').toLowerCase();
     if (d > 1.5) notes.push(`Size ${size.sizeKey} may be snug at the ${at}.`);
     else if (d < -2) notes.push(`Size ${size.sizeKey} may be loose at the ${at}.`);
-    // Whose table the size came off. A shopper on a store's link is being handed
-    // that store's numbers and should be told so, rather than left to assume a
-    // standard chart answered.
-    if (sizeSource === 'store') {
-      notes.push(chartName
-        ? `This size is off ${chartName}\u2019s own chart, not a standard one.`
-        : 'This size is off the store\u2019s own chart, not a standard one.');
-    }
-    // The size is picked off one girth. If that girth's front-to-back depth had
-    // to be modelled rather than seen from the side, the size can honestly sit a
-    // size either way â€” and saying so is better than sounding certain. Only the
-    // torso girth has a depth model; a chart decided on a waist or a shoulder is
-    // not hedged by something that never applied to it.
-    if (size.field === 'chest' && measured.chest && !measured.chest.depthMeasured) {
-      const v = measured.chest.widthViews;
-      const why = profiled || turned
-        ? 'the frames that did turn were not clear enough to read it from'
-        : 'no frame turned far enough to show body depth';
-      notes.push(`Size ${size.sizeKey} is read from your front width alone${v === 1 ? ', off a single frame' : `, across ${v} frames`} â€” ${why} â€” so it could sit one size either way.`);
-    }
   } else {
     notes.push(chartName
       ? `No size is given for ${chartName}: ${sizeMissingReason}`
@@ -2043,11 +2019,6 @@ async function finishScan(req, res, { frames, rejected, unreadable, failures, cl
   if (frames.length < 3) notes.push(`Only ${frames.length} usable frame${frames.length === 1 ? '' : 's'} came out of the video.`);
   if (h && h.views > 1 && h.spread > 3) {
     notes.push(`Your height read ${Math.round(h.spread)} in apart between frames, so it is the least certain number here.`);
-  }
-  if (Object.values(measured).some((m) => !m.depthMeasured && m.girth)) {
-    notes.push(profiled || turned
-      ? `The frames turned far enough to show body depth (${profiled} in profile, ${turned} at three-quarter) were not clear enough to read it from, so it was modelled from your front width instead.`
-      : 'No frame was turned far enough to show body depth, so it was modelled from your front width rather than measured.');
   }
 
   const result = {

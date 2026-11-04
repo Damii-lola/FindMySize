@@ -694,10 +694,16 @@ function renderVerdict(data) {
 }
 
 function renderAnalysis(data) {
+  const live = params.get('embed') === '1' && !previewPhase;
   renderFacts(data);
   renderMeasures(data);
   renderNotes(data);
   renderVerdict(data);
+  if (live) {
+    analysis.classList.add('size-only');
+    if (verdictNote) verdictNote.hidden = true;
+    if (verdictRow) verdictRow.hidden = true;
+  }
   // Restart the entrance: the cards are new elements and animate on their own,
   // but the heading and the chips are the same nodes as last time, so the class
   // has to be dropped and forced back on for them to run again.
