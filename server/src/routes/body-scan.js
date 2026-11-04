@@ -1898,7 +1898,11 @@ async function finishScan(req, res, { frames, rejected, unreadable, failures, cl
   if (chart) {
     size = bestSize(sheet || 'male', adjusted, chart.rows, chart.columns);
     if (size) {
-      const fit = adjustForProportions(size, adjusted, chart.columns, chart.rows);
+      const all = {};
+      for (const item of catalogue.items || []) {
+        if (item && item.key && Number.isFinite(item.in)) all[item.key] = item.in;
+      }
+      const fit = adjustForProportions(size, adjusted, chart.columns, chart.rows, all);
       size = fit.size;
       sizeReason = fit.reason;
       sizeSource = 'store';

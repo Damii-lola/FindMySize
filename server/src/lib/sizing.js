@@ -284,15 +284,18 @@ function markFlatColumns(columns, rows) {
 /**
  * The chart says how each size is cut. It does not pick the size.
  *
- * Every row is scored for this body. A size that is too small for any part
- * we measured loses hard — that is a garment that will not go on. A size with
- * a little room wins. Parts the brand never listed still count, so a chest
- * that fits and shoulders that do not is not a fit. The lowest score is the
- * size given.
+ * Every measurement the scan calculated votes, whether or not the brand
+ * listed it. A size that is too small for any of them loses hard. The size
+ * with the best fit across the whole body is the one given.
  */
 const EASE = { chest: 2, waist: 1, hips: 2, shoulder: 0.5, neck: 0.25, arm: 0.5 };
-const IMPLIED = { shoulder: 0.44, arm: 0.32, neck: 0.38, hips: 1.02 };
-const TOP = new Set(['chest', 'shoulder', 'neck', 'arm']);
+// What each part is, as a fraction of the size's chest (or waist for a bottom).
+const OF_CHEST = {
+  chest: 1, waist: 0.85, hips: 1.0, shoulder: 0.44, neck: 0.38, arm: 0.32,
+  backWidth: 0.4, sleeveLength: 0.66, armLength: 0.54, napeToWaist: 0.46,
+  shoulderToWaist: 0.42, armholeDepth: 0.22, height: 1.7,
+};
+const OF_WAIST = { waist: 1, hips: 1.12, chest: 1.15 };
 
 function num(v) {
   const n = Number(v);
@@ -304,8 +307,6 @@ function cellMid(cell) {
   if (Number.isFinite(cell.min) && Number.isFinite(cell.max)) return (cell.min + cell.max) / 2;
   return null;
 }
-
-/** How badly a garment measurement misses a body. Too small is expensive. */
 function fitCost(garment, body, ease) {
   const room = garment - (body + ease);
   if (room >= -0.4 && room <= 3) return Math.abs(room) * 0.4;
@@ -313,51 +314,51 @@ function fitCost(garment, body, ease) {
   return (room - 3) * 0.6;
 }
 
-export function adjustForProportions(size, girths, columns, rows) {
-  if (!size || !girths || !rows) return { size, reason: null };
+export function adjustForProportions(size, girths, columns, rows, all = null) {
+  if (!size || !rows) return { size, reason: null };
+  const body = { ...(girths || {}), ...(all || {}) };
   const cols = columns || [];
-  const listed = new Set(cols.map((c) => c.measure || c.field).filter(Boolean));
-  const field = size.field;
-  const isTop = TOP.has(field);
+  const byField = new Map();
+  for (const c of cols) {
+    const f = c.measure || c.field;
+    if (f) byField.set(f, c);
+  }
+  const isBottom = size.field === 'waist' || size.field === 'hips';
+  const ratios = isBottom ? { ...OF_CHEST, ...OF_WAIST } : OF_CHEST;
   const order = Object.keys(rows);
   if (!order.length) return { size, reason: null };
 
-  const chestCol = cols.find((c) => (c.measure || c.field) === 'chest');
-  const waistCol = cols.find((c) => (c.measure || c.field) === 'waist');
-  const anchorCol = chestCol || waistCol || cols.find((c) => c.id === size.key);
+  const anchorCol = cols.find((c) => (c.measure || c.field) === (isBottom ? 'waist' : 'chest'))
+    || cols.find((c) => c.id === size.key);
 
   const scored = order.map((key) => {
     const row = rows[key];
+    const anchor = anchorCol ? cellMid(row[anchorCol.id]) : null;
     let cost = 0;
     let n = 0;
-    for (const c of cols) {
-      const f = c.measure || c.field;
-      const body = num(girths[f]);
-      const cell = cellMid(row[c.id]);
-      if (!f || body == null || cell == null) continue;
-      const garment = c.flat ? cell * 2 : cell;
-      cost += fitCost(garment, body, EASE[f] || 0);
+    for (const [part, value] of Object.entries(body)) {
+      const measured = num(value);
+      if (measured == null) continue;
+      const col = byField.get(part);
+      if (col && row[col.id] != null) {
+        const cell = cellMid(row[col.id]);
+        if (cell == null) continue;
+        const garment = col.flat ? cell * 2 : cell;
+        cost += fitCost(garment, measured, EASE[part] || 0);
+        n += 1;
+        continue;
+      }
+      const ratio = ratios[part];
+      if (!ratio || anchor == null) continue;
+      cost += fitCost(anchor * ratio, measured, EASE[part] || 0);
       n += 1;
     }
-    if (anchorCol) {
-      const anchor = cellMid(row[anchorCol.id]);
-      const parts = isTop ? ['shoulder', 'arm', 'neck'] : ['hips'];
-      for (const part of parts) {
-        if (listed.has(part)) continue;
-        const body = num(girths[part]);
-        const ratio = IMPLIED[part];
-        if (body == null || anchor == null || !ratio) continue;
-        const base = part === 'hips' && waistCol ? cellMid(row[waistCol.id]) : anchor;
-        if (base == null) continue;
-        cost += fitCost(base * ratio, body, EASE[part] || 0) * 0.8;
-        n += 1;
-      }
-    }
-    return { key, row, cost: n ? cost / n : 99 };
+    return { key, row, cost: n ? cost / n : 99, n };
   });
 
-  scored.sort((a, b) => a.cost - b.cost);
-  const best = scored[0];
-  if (!best) return { size, reason: null };
+  const usable = scored.filter((s) => s.n > 0);
+  if (!usable.length) return { size, reason: null };
+  usable.sort((a, b) => a.cost - b.cost);
+  const best = usable[0];
   return { size: { ...size, sizeKey: best.key, row: best.row }, reason: null };
 }
