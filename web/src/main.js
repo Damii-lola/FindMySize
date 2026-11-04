@@ -131,6 +131,7 @@ const log = (...args) => console.log('[3dg]', ...args);
  * a garment at all — it never claims to be sizing for something it has not read.
  */
 const chartCode = (new URLSearchParams(location.search).get('g') || '').trim();
+const livePopup = params.get('embed') === '1' && !previewPhase;
 const garmentPromise = chartCode
   ? chartByCode(chartCode).catch((e) => {
     log('the size chart in this link could not be read:', e.message);
@@ -865,6 +866,8 @@ async function runAnalysis() {
         return analyzeBody(frames, {
           gender: chosenGender,
           chart,
+          usage: livePopup ? 'popup' : undefined,
+          chartCode: livePopup ? chartCode : undefined,
           onTick: (s) => setStatus(`Analyzing ${frames.length} frames on the server… ${s}s`, 'busy'),
         });
       };
@@ -877,6 +880,8 @@ async function runAnalysis() {
           to: toSec,
           gender: chosenGender,
           chart,
+          usage: livePopup ? 'popup' : undefined,
+          chartCode: livePopup ? chartCode : undefined,
           uploadBudgetMs: UPLOAD_BUDGET_MS,
           onProgress: (f) => setStatus(`Sending your clip (${mb} MB)… ${Math.round(f * 100)}% · ${since(startedAt)}`, 'busy'),
           onUploaded: () => setStatus(`Clip sent — reading it on the server… · ${since(startedAt)}`, 'busy'),

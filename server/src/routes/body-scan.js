@@ -90,6 +90,7 @@ import { oaChat, oaConfigured, oaModel } from '../lib/openai-compat.js';
 import { adjustForProportions, bestSize, chartFromInput, CHARTS, chartKey, columnsFromRows } from '../lib/sizing.js';
 import { measureField } from '../shared/measures.js';
 import { consume } from '../lib/limits.js';
+import { db, supabaseConfigured } from '../lib/supabase.js';
 
 /**
  * Uploads land on disk, not in memory: a phone clip can be tens of megabytes and
@@ -2089,8 +2090,18 @@ async function finishScan(req, res, { frames, rejected, unreadable, failures, cl
   // nothing to keep. Timing and provenance are enough to debug the pipeline.
   log(`done in ${result.debug.elapsedMs}ms - basis=${sizeBasis} source=${sizeSource} rows=${catalogue.items.length}`);
 
-  const gate = await consume(req, String(req.body?.usage || req.query?.usage || '') === 'popup' ? 'popups' : 'scans');
+  const isPopup = String(req.body?.usage || req.query?.usage || '') === 'popup';
+  const gate = await consume(req, isPopup ? 'popups' : 'scans');
   if (!gate.ok) throw new HttpError(402, gate.error);
+  if (isPopup && supabaseConfigured()) {
+    const code = String(req.body?.chartCode || req.query?.chartCode || input?.code || '').trim();
+    if (code) {
+      const { data } = await db().from('size_charts').select('popup_uses').eq('code', code).maybeSingle();
+      if (data) {
+        await db().from('size_charts').update({ popup_uses: Number(data.popup_uses || 0) + 1 }).eq('code', code);
+      }
+    }
+  }
   res.json(result);
 }
 

@@ -82,6 +82,8 @@ export function analyzeVideo(clip, opts = {}) {
   form.append('to', String(opts.to ?? 0));
   if (opts.gender) form.append('gender', opts.gender);
   if (opts.chart) form.append('chart', JSON.stringify(opts.chart));
+  if (opts.usage) form.append('usage', opts.usage);
+  if (opts.chartCode) form.append('chartCode', opts.chartCode);
 
   log('POST', url, '(clip)', clip.size, 'bytes', `${Number(opts.from || 0).toFixed(1)}s -> ${Number(opts.to || 0).toFixed(1)}s`);
 
@@ -178,6 +180,8 @@ export function analyzeBody(frames, opts = {}) {
   // The store's own chart, when the scan arrived through their link. It only
   // ever CHOOSES a size: what is measured is measured from the video either way.
   if (opts.chart) form.append('chart', JSON.stringify(opts.chart));
+  if (opts.usage) form.append('usage', opts.usage);
+  if (opts.chartCode) form.append('chartCode', opts.chartCode);
 
   return request(url, { method: 'POST', body: form }, { timeoutMs: 180000, ...opts });
 }

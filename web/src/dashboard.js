@@ -656,7 +656,7 @@ function updateStats(charts) {
   if (!charts.length) { statsEl.hidden = true; return; }
   statsEl.hidden = false;
   statGarments.textContent = charts.length;
-  statSizes.textContent = charts.reduce((n, c) => n + (Array.isArray(c.rows) ? c.rows.length : 0), 0);
+  statSizes.textContent = charts.reduce((n, c) => n + Number(c.popup_uses || 0), 0);
   const latest = charts.reduce((acc, c) => {
     const t = c.updated_at || c.created_at;
     return t && (!acc || String(t) > String(acc)) ? t : acc;

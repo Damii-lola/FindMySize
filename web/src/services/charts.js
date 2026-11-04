@@ -90,10 +90,16 @@ export async function listCharts() {
   if (!(await hasSession())) return localList();
   const client = await supabaseClient();
   if (!client) return localList();
-  const { data, error } = await client
+  let { data, error } = await client
     .from('size_charts')
-    .select('id, code, name, sex, unit, columns, rows, popup, created_at, updated_at')
+    .select('id, code, name, sex, unit, columns, rows, popup, popup_uses, created_at, updated_at')
     .order('created_at', { ascending: false });
+  if (error && /popup_uses/i.test(error.message || '')) {
+    ({ data, error } = await client
+      .from('size_charts')
+      .select('id, code, name, sex, unit, columns, rows, popup, created_at, updated_at')
+      .order('created_at', { ascending: false }));
+  }
   if (error) throw error;
   return data || [];
 }
@@ -220,6 +226,7 @@ export async function chartByCode(code) {
     const row = await api(`/api/charts/code/${encodeURIComponent(code)}`);
     if (!row) return null;
     return {
+      code: typeof row.code === 'string' ? row.code : code,
       name: typeof row.name === 'string' ? row.name : '',
       sex: row.sex === 'female' || row.sex === 'male' ? row.sex : 'unisex',
       unit: row.unit === 'cm' ? 'cm' : 'in',

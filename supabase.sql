@@ -80,3 +80,5 @@ alter table public.size_charts add column if not exists popup jsonb not null def
 
 -- allow charts created without an account
 alter table public.size_charts alter column user_id drop not null;
+
+alter table public.size_charts add column if not exists popup_uses int not null default 0;
