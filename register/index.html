@@ -26,29 +26,36 @@
       .activate-card h2 { margin: 0 0 8px; font-size: 1.6rem; }
     </style>
     <script type="module" crossorigin src="/FindMySize/assets/register--r018A-O.js"></script>
-<script type="module">
-  const btn = document.getElementById('activate-btn');
-  if (btn) {
-    btn.addEventListener('click', async (e) => {
-      const email = document.getElementById('otp-email')?.textContent || '';
-      if (!email.includes('@')) return;
-      e.preventDefault();
-      try {
-        const cfg = await (await fetch('https://findmysize.onrender.com/api/public-config')).json();
-        if (!cfg.wavyApi) return;
-        const res = await fetch('https://findmysize.onrender.com/api/pay/wavy-checkout', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email }),
-        });
-        const data = await res.json();
-        if (!res.ok || !data.url) throw new Error(data.error || 'Could not start checkout');
-        window.location.href = data.url;
-      } catch (err) {
-        alert(err.message || 'Checkout failed. Try again.');
+<script>
+  // Intercept before the bundled script sets the Selar link.
+  document.addEventListener('click', async (e) => {
+    const btn = e.target.closest('#activate-btn');
+    if (!btn) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    const email = document.getElementById('otp-email')?.textContent?.trim() || '';
+    if (!email.includes('@')) {
+      alert('Confirm your email first.');
+      return;
+    }
+    try {
+      const cfg = await (await fetch('https://findmysize.onrender.com/api/public-config')).json();
+      if (!cfg.wavyApi) {
+        window.location.href = (cfg.selarCheckoutUrl || 'https://selar.com/1w89133gya') + '?email=' + encodeURIComponent(email);
+        return;
       }
-    });
-  }
+      const res = await fetch('https://findmysize.onrender.com/api/pay/wavy-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.url) throw new Error(data.error || 'Could not start checkout');
+      window.location.href = data.url;
+    } catch (err) {
+      alert(err.message || 'Checkout failed. Try again.');
+    }
+  }, true);
 </script>
     <link rel="modulepreload" crossorigin href="/FindMySize/assets/modulepreload-polyfill-B5Qt9EMX.js">
     <link rel="stylesheet" crossorigin href="/FindMySize/assets/auth-CAE-0p9E.css">
