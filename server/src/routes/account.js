@@ -57,7 +57,7 @@ payRoutes.post('/wavy-checkout', ah(async (req, res) => {
 
   const amount = Number(req.body?.amount) || 200;
   const reference = `fms_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-  const origin = String(req.get('origin') || 'https://findmysize.onrender.com').replace(/\/$/, '');
+  const site = 'https://damii-lola.github.io/FindMySize';
 
   const response = await fetch(`${config.wavyApiBase}/api/gateway/v1/checkout`, {
     method: 'POST',
@@ -71,8 +71,8 @@ payRoutes.post('/wavy-checkout', ah(async (req, res) => {
       email,
       payment_options: 'card',
       merchant_reference: reference,
-      success_url: `${origin}/registered/?paid=1`,
-      cancel_url: `${origin}/register/?cancel=1`,
+      success_url: `${site}/registered/?paid=1&email=${encodeURIComponent(email)}`,
+      cancel_url: `${site}/register/?cancel=1`,
     }),
   });
 
@@ -100,10 +100,11 @@ payRoutes.post('/wavy', ah(async (req, res) => {
   if (!verified) throw new HttpError(401, 'Invalid Wavy webhook signature');
 
   const body = req.body || {};
-  const event = String(body.event || body.type || '').toLowerCase();
-  if (event && !event.includes('success') && !event.includes('completed') && event !== 'payment.success') {
-    return res.json({ ok: true, ignored: event });
-  }
+  console.log('[wavy] webhook body:', JSON.stringify(body).slice(0, 500));
+  const event = String(body.event || body.type || body.status || '').toLowerCase();
+  const status = String(body.status || body.payment_status || '').toLowerCase();
+  const ok = !event || event.includes('success') || event.includes('completed') || status.includes('success') || status.includes('completed') || body.paid === true;
+  if (!ok) return res.json({ ok: true, ignored: event || status });
 
   const email = emailOf(
     body.email
