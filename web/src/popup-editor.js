@@ -11,7 +11,7 @@
  */
 import { api } from './services/api.js';
 import {
-  buttonAttributeString, DEFAULTS, effectiveColours, FONTS, fromAnalysis, hex6, normalizePopup,
+  buttonAttributeString, DEFAULTS, effectiveColours, FONTS, fromAnalysis, hex6, normalizePopup, readableOn,
 } from './popup-config.js';
 
 /** One-click starting points: the whole look in one go. */
@@ -266,7 +266,11 @@ export function openPopupEditor({ chart, siteUrl, onSave, toast }) {
         return el('button', {
           class: 'pe-preset', type: 'button', title: preset.name,
           style: `--bg:${preset.theme.background};--fg:${text};--ac:${preset.theme.accent}`,
-          onclick: () => edit((c) => { Object.assign(c.theme, preset.theme); }, { rebuild: true }),
+          onclick: () => edit((c) => {
+          Object.assign(c.theme, preset.theme);
+          c.button.bg = preset.theme.accent;
+          c.button.textColor = readableOn(preset.theme.accent);
+        }, { rebuild: true }),
         }, el('span', { class: 'pe-preset-dot' }), el('span', { text: preset.name }));
       }));
 
@@ -275,7 +279,11 @@ export function openPopupEditor({ chart, siteUrl, onSave, toast }) {
       field('Background', colourInput(() => cfg.theme.background, (c, v) => { c.theme.background = v; }, { label: 'Background' })),
       field('Text', colourInput(() => cfg.theme.text, (c, v) => { c.theme.text = v; }, { label: 'Text' })),
       contrastNote,
-      field('Accent', colourInput(() => cfg.theme.accent, (c, v) => { c.theme.accent = v; }, { label: 'Accent' }), 'Icons, rules and highlights inside the popup.'),
+      field('Accent', colourInput(() => cfg.theme.accent, (c, v) => {
+        c.theme.accent = v;
+        c.button.bg = v;
+        c.button.textColor = readableOn(v);
+      }, { label: 'Accent' }), 'Icons, rules and highlights inside the popup. The button uses this colour too.'),
       field('Typeface', selectInput(() => cfg.theme.font, (c, v) => { c.theme.font = v; }, Object.entries(FONTS).map(([key, f]) => [key, f.label]))),
       field('Corners', rangeInput(() => cfg.theme.radius, (c, v) => { c.theme.radius = v; }, { min: 0, max: 40, step: 1, format: pixels })),
       field('Text size', rangeInput(() => cfg.theme.scale, (c, v) => { c.theme.scale = v; }, { min: 0.85, max: 1.25, step: 0.05, format: percent })),
