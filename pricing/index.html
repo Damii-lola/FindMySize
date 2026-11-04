@@ -18,6 +18,33 @@
     <script src="/FindMySize/theme-init.js"></script>
     <script src="/FindMySize/reveal.js"></script>
     <script type="module" crossorigin src="/FindMySize/assets/pricing-D3hn-c2Y.js"></script>
+<script type="module">
+  const API = 'https://findmysize.onrender.com';
+  document.addEventListener('click', async (e) => {
+    const btn = e.target.closest('a.btn--primary');
+    if (!btn || !btn.href?.includes('dashboard')) return;
+    e.preventDefault();
+    try {
+      const cfg = await (await fetch(API + '/api/public-config')).json();
+      if (!cfg.wavyApi) {
+        window.location.href = cfg.selarCheckoutUrl || 'https://selar.com/1w89133gya';
+        return;
+      }
+      const email = prompt('Enter the email to receive your activation code:');
+      if (!email || !email.includes('@')) return;
+      const res = await fetch(API + '/api/pay/wavy-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.url) throw new Error(data.error || 'Could not start checkout');
+      window.location.href = data.url;
+    } catch (err) {
+      alert(err.message || 'Checkout failed. Try again.');
+    }
+  });
+</script>
     <link rel="modulepreload" crossorigin href="/FindMySize/assets/modulepreload-polyfill-B5Qt9EMX.js">
     <link rel="modulepreload" crossorigin href="/FindMySize/assets/api-CD19Ed_l.js">
     <link rel="modulepreload" crossorigin href="/FindMySize/assets/nav-Cthv8JGx.js">
