@@ -81,8 +81,21 @@ payRoutes.post('/wavy-checkout', ah(async (req, res) => {
     }).then(() => {}).catch((err) => console.warn('[wavy] pending store failed', err.message));
   }
 
-  const url = `https://wavy.ng/subscribe.html?plan=6aecf783276979582d0b8376&email=${encodeURIComponent(email)}`;
-  res.json({ url, reference });
+  const site = 'https://damii-lola.github.io/FindMySize';
+  const sub = await fetch(`${config.wavyApiBase}/api/payments/subscriptions/plans/6aecf783276979582d0b8376/subscribe`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${secret}` },
+    body: JSON.stringify({
+      email,
+      success_url: `${site}/auth/?paid=1&email=${encodeURIComponent(email)}&reference=${encodeURIComponent(reference)}`,
+      redirect_url: `${site}/auth/?paid=1&email=${encodeURIComponent(email)}&reference=${encodeURIComponent(reference)}`,
+    }),
+  });
+  const subData = await sub.json().catch(() => ({}));
+  if (!sub.ok || !subData.payment_link) {
+    throw new HttpError(sub.status || 502, subData.error || subData.message || 'Could not start the subscription');
+  }
+  res.json({ url: subData.payment_link, reference });
 }));
 
 async function wavyTxPaid(reference) {
