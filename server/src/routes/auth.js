@@ -118,12 +118,9 @@ authRoutes.post('/login/finish', ah(async (req, res) => {
 
   let sub = await subscriptionOf(data.user.id);
   if (!isActive(sub)) {
-    if (!code) throw new HttpError(400, 'Enter the activation code from your payment');
-    const { data: row, error: readErr } = await db().from('activation_codes').select('*').eq('code', code).maybeSingle();
-    if (readErr) throw new HttpError(500, readErr.message);
-    if (!row || row.used) throw new HttpError(400, 'That activation code is not valid');
-    if (emailOf(row.email) !== email) throw new HttpError(400, 'That code belongs to a different email');
-    await db().from('activation_codes').update({ used: true, used_at: new Date().toISOString() }).eq('code', code);
+    const paid = await db().from('paid_emails').select('email').eq('email', email).maybeSingle();
+    if (paid.error) throw new HttpError(500, paid.error.message);
+    if (!paid.data) throw new HttpError(400, 'This email has not been paid for yet');
     const paidUntil = new Date();
     paidUntil.setMonth(paidUntil.getMonth() + 1);
     const up = await db().from('subscriptions').upsert({
@@ -131,10 +128,10 @@ authRoutes.post('/login/finish', ah(async (req, res) => {
       plan: 'unlimited',
       status: 'active',
       paid_until: paidUntil.toISOString(),
-      selar_transaction_id: code,
       updated_at: new Date().toISOString(),
     }, { onConflict: 'user_id' });
     if (up.error) throw new HttpError(500, up.error.message);
+    await db().from('paid_emails').delete().eq('email', email);
   }
 
   res.json({
