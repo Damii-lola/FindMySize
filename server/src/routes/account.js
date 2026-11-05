@@ -7,6 +7,7 @@ import { consume, isUnlimited, rememberDevSub, userFromAuth, usageSnapshot } fro
 import { makeActivationCode, markDevInactive } from './auth.js';
 
 const codes = new Map();
+const pendingPays = new Map(); // reference -> { email, amount, created }
 const charts = new Map();
 
 const emailOf = (v) => String(v || '').trim().toLowerCase();
@@ -59,6 +60,8 @@ payRoutes.post('/wavy-checkout', ah(async (req, res) => {
   const reference = `fms_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   const site = 'https://damii-lola.github.io/FindMySize';
 
+  pendingPays.set(reference, { email, amount, created: Date.now() });
+
   const response = await fetch(`${config.wavyApiBase}/api/gateway/v1/checkout`, {
     method: 'POST',
     headers: {
@@ -71,8 +74,8 @@ payRoutes.post('/wavy-checkout', ah(async (req, res) => {
       email,
       payment_options: 'card',
       merchant_reference: reference,
-      success_url: `${site}/registered/?paid=1&email=${encodeURIComponent(email)}`,
-      cancel_url: `${site}/register/?cancel=1`,
+      success_url: `${site}/registered/?paid=1&email=${encodeURIComponent(email)}&reference=${encodeURIComponent(reference)}`,
+      cancel_url: `${site}/register/?cancel=1&reference=${encodeURIComponent(reference)}`,
     }),
   });
 
@@ -84,23 +87,48 @@ payRoutes.post('/wavy-checkout', ah(async (req, res) => {
   res.json({ url, reference });
 }));
 
+async function wavyTxPaid(reference) {
+  if (!reference || !config.wavySecretKey) return false;
+  const check = await fetch(`${config.wavyApiBase}/api/gateway/v1/transactions/${encodeURIComponent(reference)}`, {
+    headers: { Authorization: `Bearer ${config.wavySecretKey}` },
+  }).catch(() => null);
+  if (!check || !check.ok) return false;
+  const tx = await check.json().catch(() => ({}));
+  const status = String(tx.status || tx.data?.status || tx.payment_status || '').toLowerCase();
+  return status.includes('success') || status.includes('completed') || tx.paid === true || tx.data?.paid === true;
+}
+
 payRoutes.post('/wavy', ah(async (req, res) => {
   const secret = config.wavyWebhookSecret;
-  if (!secret) throw new HttpError(503, 'Wavy webhook secret is not configured');
-
-  const signature = String(req.get('x-wavy-signature') || '');
+  const signature = String(req.get('x-wavy-signature') || req.get('x-signature') || '');
   const givenSecret = String(req.get('x-webhook-secret') || req.body?.secret || '');
   const bodyRaw = JSON.stringify(req.body || {});
+  console.log('[wavy] webhook headers:', JSON.stringify({
+    signature: signature.slice(0, 20),
+    hasSecret: Boolean(secret),
+    bodyKeys: Object.keys(req.body || {}),
+  }));
+
   let verified = false;
   if (signature && secret) {
     const expected = crypto.createHmac('sha256', secret).update(bodyRaw).digest('hex');
-    verified = timingEqual(signature, expected) || timingEqual(signature, `sha256=${expected}`);
+    verified = timingEqual(signature, expected)
+      || timingEqual(signature, `sha256=${expected}`)
+      || timingEqual(signature, Buffer.from(expected, 'hex').toString('base64'));
   }
-  if (!verified && givenSecret) verified = timingEqual(givenSecret, secret);
-  if (!verified) throw new HttpError(401, 'Invalid Wavy webhook signature');
+  if (!verified && givenSecret && secret) verified = timingEqual(givenSecret, secret);
 
   const body = req.body || {};
-  console.log('[wavy] webhook body:', JSON.stringify(body).slice(0, 500));
+  const reference = String(
+    body.merchant_reference || body.reference || body.tx_ref || body.data?.reference || body.data?.merchant_reference || ''
+  );
+  // If signature fails, still accept when we can confirm the transaction with Wavy
+  if (!verified && reference) verified = await wavyTxPaid(reference);
+  if (!verified) {
+    console.warn('[wavy] webhook rejected: no valid signature and tx not confirmed');
+    throw new HttpError(401, 'Invalid Wavy webhook signature');
+  }
+
   const event = String(body.event || body.type || body.status || '').toLowerCase();
   const status = String(body.status || body.payment_status || '').toLowerCase();
   const ok = !event || event.includes('success') || event.includes('completed') || status.includes('success') || status.includes('completed') || body.paid === true;
@@ -114,6 +142,7 @@ payRoutes.post('/wavy', ah(async (req, res) => {
     ?? body.data?.email
     ?? body.data?.customer_email
     ?? body.metadata?.email
+    ?? pendingPays.get(reference)?.email
   );
   if (!email) throw new HttpError(400, 'Wavy webhook has no customer email');
   const code = await issueCode(email);
@@ -121,29 +150,20 @@ payRoutes.post('/wavy', ah(async (req, res) => {
   console.log(`[wavy] activation code issued for ${email}: ${code}`);
 }));
 
-
 payRoutes.post('/wavy-claim', ah(async (req, res) => {
   const email = emailOf(req.body?.email);
   const reference = String(req.body?.reference || '');
   if (!email || !email.includes('@')) throw new HttpError(400, 'Enter a valid email');
+  if (!reference) throw new HttpError(400, 'Missing payment reference');
 
-  // If we already issued a code for this email, return it
+  const pending = pendingPays.get(reference);
+  if (pending && pending.email !== email) throw new HttpError(403, 'Email does not match this payment');
+
+  const paid = await wavyTxPaid(reference);
+  if (!paid) throw new HttpError(402, 'Payment not confirmed yet. Wait a moment and try again.');
+
   const existing = codes.get(email);
   if (existing) return res.json({ ok: true, code: existing, already: true });
-
-  // Verify with Wavy if we have a reference
-  if (reference && config.wavySecretKey) {
-    const check = await fetch(`${config.wavyApiBase}/api/gateway/v1/transactions/${encodeURIComponent(reference)}`, {
-      headers: { Authorization: `Bearer ${config.wavySecretKey}` },
-    }).catch(() => null);
-    if (check && check.ok) {
-      const tx = await check.json().catch(() => ({}));
-      const status = String(tx.status || tx.data?.status || '').toLowerCase();
-      if (!status.includes('success') && !status.includes('completed') && tx.paid !== true) {
-        throw new HttpError(402, 'Payment not confirmed yet');
-      }
-    }
-  }
 
   const code = await issueCode(email);
   res.json({ ok: true, code });
