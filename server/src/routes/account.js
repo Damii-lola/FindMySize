@@ -369,13 +369,21 @@ meRoutes.post('/subscription/cancel', ah(async (req, res) => {
 chartRoutes.post('/brand-sync', ah(async (req, res) => {
   if (!adminFromReq(req)) throw new HttpError(401, 'Log in first');
   const brand = String(req.body?.brand || '').trim();
+  const codes = Array.isArray(req.body?.codes) ? req.body.codes.map((c) => String(c)) : [];
   const popup = req.body?.popup;
-  if (!brand) throw new HttpError(400, 'Brand is required');
   if (!popup || typeof popup !== 'object') throw new HttpError(400, 'Popup design is required');
   if (!supabaseConfigured()) return res.json({ ok: true, updated: 0 });
-  const { data, error } = await db().from('size_charts').update({ popup }).eq('brand', brand).select('code');
-  if (error) throw new HttpError(500, error.message);
-  res.json({ ok: true, updated: (data || []).length });
+  let updated = 0;
+  if (codes.length) {
+    const { data, error } = await db().from('size_charts').update({ popup }).in('code', codes).select('code');
+    if (error) throw new HttpError(500, error.message);
+    updated = (data || []).length;
+  }
+  if (brand) {
+    const { data, error } = await db().from('size_charts').update({ popup }).eq('brand', brand).select('code');
+    if (!error) updated = Math.max(updated, (data || []).length);
+  }
+  res.json({ ok: true, updated });
 }));
 
 chartRoutes.get('/code/:code', ah(async (req, res) => {
