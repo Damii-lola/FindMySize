@@ -182,28 +182,6 @@ function timingSafe(a, b) {
   return crypto.timingSafeEqual(x, y);
 }
 
-const adminOtps = new Map();
-
-async function sendAdminOtp(email, code) {
-  const user = config.gmail.user;
-  const pass = config.gmail.pass;
-  if (!user || !pass) throw new HttpError(503, 'Email is not configured');
-  const nodemailer = (await import('nodemailer')).default;
-  const transport = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 465,
-    secure: true,
-    auth: { user, pass },
-  });
-  await transport.sendMail({
-    from: `FindMySize <${user}>`,
-    to: email,
-    subject: 'Your FindMySize login code',
-    text: `Your login code is ${code}. It expires in 10 minutes.`,
-    html: `<p>Your login code is <strong style="font-size:20px;letter-spacing:2px">${code}</strong>.</p><p>It expires in 10 minutes.</p>`,
-  });
-}
-
 authRoutes.post('/admin-login', ah(async (req, res) => {
   const email = String(req.body?.email || req.body?.username || '').trim().toLowerCase();
   const password = String(req.body?.password || '');
@@ -212,17 +190,13 @@ authRoutes.post('/admin-login', ah(async (req, res) => {
   if (email !== config.adminEmail || password !== config.adminPassword) {
     throw new HttpError(401, 'Wrong email or password');
   }
-
   if (!otp) {
-    const code = String(Math.floor(100000 + Math.random() * 900000));
-    adminOtps.set(email, { code, exp: Date.now() + 10 * 60 * 1000 });
-    await sendAdminOtp(email, code);
+    const sent = await db().auth.signInWithOtp({ email, options: { shouldCreateUser: true } });
+    if (sent.error) throw new HttpError(500, sent.error.message);
     return res.json({ ok: true, needsOtp: true });
   }
-
-  const row = adminOtps.get(email);
-  if (!row || row.exp < Date.now() || row.code !== otp) throw new HttpError(400, 'That code is wrong or expired');
-  adminOtps.delete(email);
+  const check = await db().auth.verifyOtp({ email, token: otp, type: 'email' });
+  if (check.error) throw new HttpError(400, 'That code is wrong or expired');
   res.json({ ok: true, token: adminToken(email), email });
 }));
 
