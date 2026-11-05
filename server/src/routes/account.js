@@ -92,7 +92,7 @@ payRoutes.post('/wavy-checkout', ah(async (req, res) => {
       email,
       payment_options: 'card',
       merchant_reference: reference,
-      success_url: `${site}/registered/?paid=1&email=${encodeURIComponent(email)}&reference=${encodeURIComponent(reference)}`,
+      success_url: `${site}/auth/?paid=1&email=${encodeURIComponent(email)}&reference=${encodeURIComponent(reference)}`,
       cancel_url: `${site}/register/?cancel=1&reference=${encodeURIComponent(reference)}`,
     }),
   });
