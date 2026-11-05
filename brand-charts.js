@@ -33,6 +33,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
   function brands() { try { return JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) { return {}; } }
   function activations() { try { return JSON.parse(localStorage.getItem('fms-brand-active') || '{}'); } catch (e) { return {}; } }
+  function designs() { try { return JSON.parse(localStorage.getItem('fms-brand-popup') || '{}'); } catch (e) { return {}; } }
+  function saveDesign(brand, popup) {
+    var map = designs();
+    map[brand.toLowerCase()] = popup;
+    localStorage.setItem('fms-brand-popup', JSON.stringify(map));
+  }
   function saveBrands(map) { localStorage.setItem(KEY, JSON.stringify(map)); }
   function known() {
     var set = {};
@@ -59,13 +65,24 @@ document.addEventListener('DOMContentLoaded', function () {
       try {
         var body = JSON.parse(opts.body);
         var brand = (brandInput && brandInput.value || '').trim();
-        if (brand) body.brand = brand;
+        if (brand) {
+          body.brand = brand;
+          var existing = designs()[brand.toLowerCase()];
+          if (existing && !body.popup) body.popup = existing;
+        }
         opts.body = JSON.stringify(body);
-        if (brand && body.popup) {
+        var designBrand = window.__fmsBrand || brand;
+        if (designBrand && body.popup) {
+          saveDesign(designBrand, body.popup);
+          var codes = Array.from(document.querySelectorAll('.brand-group')).filter(function (g) {
+            return ((g.querySelector('.brand-name') || {}).textContent || '') === designBrand;
+          }).flatMap(function (g) {
+            return Array.from(g.querySelectorAll('.chart-card')).map(function (c) { return c.dataset.code; });
+          }).filter(Boolean);
           orig.call(this, 'https://findmysize.onrender.com/api/charts/brand-sync', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (localStorage.getItem('fms-admin') || '') },
-            body: JSON.stringify({ brand: brand, popup: body.popup }),
+            body: JSON.stringify({ brand: designBrand, popup: body.popup, codes: codes }),
           }).catch(function () {});
         }
       } catch (e) {}
@@ -116,6 +133,7 @@ document.addEventListener('DOMContentLoaded', function () {
       actions.addEventListener('click', function (e) { e.stopPropagation(); });
       var customise = actions.querySelector('[data-customise]');
       customise.addEventListener('click', function () {
+        window.__fmsBrand = brand;
         var btn = details.querySelector('[data-act="preview"]');
         if (btn) btn.click();
       });
