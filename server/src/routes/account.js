@@ -202,8 +202,9 @@ payRoutes.post('/wavy-claim', ah(async (req, res) => {
   if (!paid) throw new HttpError(402, 'Payment not confirmed yet. Wait a moment and try again.');
 
   await markPaid(email);
+  const code = await issueCode(email);
   pendingPays.delete(reference);
-  res.json({ ok: true, paid: true });
+  res.json({ ok: true, paid: true, code });
 }));
 
 payRoutes.post('/dev-claim', ah(async (req, res) => {
@@ -214,7 +215,21 @@ payRoutes.post('/dev-claim', ah(async (req, res) => {
   res.json({ code: 'DEVCODE' });
 }));
 
-payRoutes.get('/code', ah(async (req, res) => {
+payRoutes.post('/brand-activate', ah(async (req, res) => {
+  if (!adminFromReq(req)) throw new HttpError(401, 'Log in first');
+  const code = String(req.body?.code || '').trim().toUpperCase();
+  const brand = String(req.body?.brand || '').trim();
+  if (!code || !brand) throw new HttpError(400, 'Brand and code are required');
+  if (!supabaseConfigured()) return res.json({ ok: true, brand });
+  const { data } = await db().from('activation_codes').select('code, used').eq('code', code).maybeSingle();
+  if (!data) throw new HttpError(400, 'That code is not valid');
+  if (data.used) throw new HttpError(400, 'That code has already been used');
+  await db().from('activation_codes').update({ used: true }).eq('code', code);
+  await db().from('brand_activations').upsert({ brand, code, activated_at: new Date().toISOString() });
+  res.json({ ok: true, brand });
+}));
+
+payRoutes.get('/code, ah(async (req, res) => {
   const email = emailOf(req.query.email);
   if (!email) throw new HttpError(400, 'Email is required');
   if (codes.has(email)) return res.json({ code: codes.get(email) });
