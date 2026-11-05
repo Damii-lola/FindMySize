@@ -81,27 +81,8 @@ payRoutes.post('/wavy-checkout', ah(async (req, res) => {
     }).then(() => {}).catch((err) => console.warn('[wavy] pending store failed', err.message));
   }
 
-  // Real Wavy subscription plan. Renewals are charged by Wavy + Flutterwave.
-  const planRes = await fetch(`${config.wavyApiBase}/api/payments/subscriptions/plans`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${secret}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      name: 'FindMySize Unlimited',
-      description: 'Monthly size-chart setup and maintenance',
-      amount,
-      currency: 'USD',
-      interval: 'monthly',
-    }),
-  });
-  const plan = await planRes.json().catch(() => ({}));
-  if (!planRes.ok) throw new HttpError(planRes.status || 502, plan.error || plan.message || 'Could not create the subscription plan');
-  const planId = plan.plan?._id || plan.plan?.id || plan._id || plan.id;
-  if (!planId) throw new HttpError(502, 'Wavy did not return a plan id');
-  const url = `https://wavy.ng/subscribe.html?plan=${encodeURIComponent(planId)}&email=${encodeURIComponent(email)}`;
-  res.json({ url, reference, planId });
+  const url = `https://wavy.ng/subscribe.html?plan=6aecf783276979582d0b8376&email=${encodeURIComponent(email)}`;
+  res.json({ url, reference });
 }));
 
 async function wavyTxPaid(reference) {
