@@ -4,7 +4,7 @@ import { db, supabaseConfigured } from '../lib/supabase.js';
 import { HttpError, ah } from '../lib/errors.js';
 import { config } from '../config.js';
 import { consume, isUnlimited, rememberDevSub, userFromAuth, usageSnapshot } from '../lib/limits.js';
-import { makeActivationCode, markDevInactive } from './auth.js';
+import { makeActivationCode, markDevInactive, adminFromReq } from './auth.js';
 
 const codes = new Map();
 const pendingPays = new Map(); // reference -> { email, amount, created }
@@ -326,6 +326,7 @@ chartRoutes.get('/', ah(async (req, res) => {
 }));
 
 chartRoutes.post('/', ah(async (req, res) => {
+  if (!adminFromReq(req)) throw new HttpError(401, 'Log in first');
   const access = await isUnlimited(req);
   const body = req.body || {};
   const name = String(body.name || '').trim().slice(0, 60);
