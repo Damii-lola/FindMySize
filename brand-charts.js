@@ -85,7 +85,7 @@ document.addEventListener('DOMContentLoaded', function () {
     var method = String(opts.method || 'GET').toUpperCase();
     if (href.indexOf('/api/charts') !== -1 && (method === 'POST' || method === 'PATCH') && opts.body) {
       try {
-        var body = JSON.parse(opts.body);
+        var body = typeof opts.body === 'string' ? JSON.parse(opts.body) : opts.body;
         var brand = (brandInput && brandInput.value || '').trim();
         if (brand) {
           body.brand = brand;
@@ -158,6 +158,10 @@ document.addEventListener('DOMContentLoaded', function () {
         window.__fmsBrand = brand;
         var btn = details.querySelector('[data-act="preview"]');
         if (btn) btn.click();
+        setTimeout(function () {
+          var title = document.querySelector('.pe-title');
+          if (title) title.lastChild.textContent = brand;
+        }, 200);
       });
       actions.querySelector('[data-delete-brand]').addEventListener('click', async function () {
         var n = groups[brand].length;
