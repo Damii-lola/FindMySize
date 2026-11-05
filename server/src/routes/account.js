@@ -74,6 +74,7 @@ payRoutes.post('/wavy-checkout', ah(async (req, res) => {
   const site = 'https://damii-lola.github.io/FindMySize';
 
   pendingPays.set(reference, { email, amount, created: Date.now() });
+  pendingPays.set('email:' + email, { reference, amount, created: Date.now() });
   if (supabaseConfigured()) {
     await db().from('pending_payments').upsert({
       reference, email, amount, created_at: new Date().toISOString(),
@@ -176,9 +177,15 @@ payRoutes.post('/wavy-claim', ah(async (req, res) => {
   const email = emailOf(req.body?.email);
   const reference = String(req.body?.reference || '');
   if (!email || !email.includes('@')) throw new HttpError(400, 'Enter a valid email');
-  if (!reference) throw new HttpError(400, 'Missing payment reference');
 
-  let pending = pendingPays.get(reference);
+  let pending = reference ? pendingPays.get(reference) : null;
+  if (!pending) {
+    const byEmail = pendingPays.get('email:' + email);
+    if (byEmail) {
+      pending = { email, amount: byEmail.amount };
+      if (!reference) reference = byEmail.reference;
+    }
+  }
   if (!pending && supabaseConfigured()) {
     const { data } = await db().from('pending_payments').select('email, amount').eq('reference', reference).maybeSingle();
     if (data?.email) pending = { email: data.email, amount: data.amount };
@@ -187,7 +194,7 @@ payRoutes.post('/wavy-claim', ah(async (req, res) => {
 
   // Trust a reference we created. The success URL is only reached after Wavy
   // redirects from a completed payment. Also accept a Wavy confirmation.
-  let paid = Boolean(pending) || reference.startsWith('fms_');
+  let paid = Boolean(pending) || (reference && reference.startsWith('fms_'));
   if (!paid) paid = await wavyTxPaid(reference);
   if (!paid) throw new HttpError(402, 'Payment not confirmed yet. Wait a moment and try again.');
 
