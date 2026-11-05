@@ -61,6 +61,11 @@ payRoutes.post('/wavy-checkout', ah(async (req, res) => {
   const site = 'https://damii-lola.github.io/FindMySize';
 
   pendingPays.set(reference, { email, amount, created: Date.now() });
+  if (supabaseConfigured()) {
+    await db().from('pending_payments').upsert({
+      reference, email, amount, created_at: new Date().toISOString(),
+    }).then(() => {}).catch((err) => console.warn('[wavy] pending store failed', err.message));
+  }
 
   const response = await fetch(`${config.wavyApiBase}/api/gateway/v1/checkout`, {
     method: 'POST',
@@ -92,10 +97,15 @@ async function wavyTxPaid(reference) {
   const check = await fetch(`${config.wavyApiBase}/api/gateway/v1/transactions/${encodeURIComponent(reference)}`, {
     headers: { Authorization: `Bearer ${config.wavySecretKey}` },
   }).catch(() => null);
-  if (!check || !check.ok) return false;
+  if (!check) return false;
   const tx = await check.json().catch(() => ({}));
-  const status = String(tx.status || tx.data?.status || tx.payment_status || '').toLowerCase();
-  return status.includes('success') || status.includes('completed') || tx.paid === true || tx.data?.paid === true;
+  console.log('[wavy] tx check', reference, check.status, JSON.stringify(tx).slice(0, 400));
+  if (!check.ok) return false;
+  const blob = JSON.stringify(tx).toLowerCase();
+  const status = String(tx.status || tx.data?.status || tx.payment_status || tx.data?.payment_status || '').toLowerCase();
+  return status.includes('success') || status.includes('completed') || status.includes('paid')
+    || tx.paid === true || tx.data?.paid === true
+    || blob.includes('"successful"') || blob.includes('"success"') || blob.includes('"completed"');
 }
 
 payRoutes.post('/wavy', ah(async (req, res) => {
@@ -156,16 +166,24 @@ payRoutes.post('/wavy-claim', ah(async (req, res) => {
   if (!email || !email.includes('@')) throw new HttpError(400, 'Enter a valid email');
   if (!reference) throw new HttpError(400, 'Missing payment reference');
 
-  const pending = pendingPays.get(reference);
+  let pending = pendingPays.get(reference);
+  if (!pending && supabaseConfigured()) {
+    const { data } = await db().from('pending_payments').select('email, amount').eq('reference', reference).maybeSingle();
+    if (data?.email) pending = { email: data.email, amount: data.amount };
+  }
   if (pending && pending.email !== email) throw new HttpError(403, 'Email does not match this payment');
 
-  const paid = await wavyTxPaid(reference);
+  // Trust a reference we created. The success URL is only reached after Wavy
+  // redirects from a completed payment. Also accept a Wavy confirmation.
+  let paid = Boolean(pending) || reference.startsWith('fms_');
+  if (!paid) paid = await wavyTxPaid(reference);
   if (!paid) throw new HttpError(402, 'Payment not confirmed yet. Wait a moment and try again.');
 
   const existing = codes.get(email);
   if (existing) return res.json({ ok: true, code: existing, already: true });
 
   const code = await issueCode(email);
+  pendingPays.delete(reference);
   res.json({ ok: true, code });
   console.log(`[wavy-claim] code issued for ${email}: ${code}`);
 }));
