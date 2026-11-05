@@ -12,13 +12,19 @@ document.addEventListener('DOMContentLoaded', function () {
     var style = document.createElement('style');
     style.id = 'brand-style';
     style.textContent = [
-      '.brand-group{margin:0 0 14px;border:1px solid rgba(34,26,21,.12);border-radius:18px;background:#fffaf3;overflow:hidden}',
-      '.brand-group summary{list-style:none;cursor:pointer;padding:18px 22px;display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:22px;font-weight:700;letter-spacing:-.02em}',
+      '.brand-group{margin:0 0 16px;border:1px solid rgba(34,26,21,.1);border-radius:22px;background:#fff;box-shadow:0 10px 30px -22px rgba(34,26,21,.4);overflow:hidden}',
+      '.brand-group summary{list-style:none;cursor:pointer;padding:0;display:block}',
       '.brand-group summary::-webkit-details-marker{display:none}',
-      '.brand-group summary:before{content:"";width:10px;height:10px;border-right:2px solid #221a15;border-bottom:2px solid #221a15;transform:rotate(-45deg);margin-right:14px;transition:transform .2s}',
-      '.brand-group[open] summary:before{transform:rotate(45deg)}',
-      '.brand-count{font-size:13px;font-weight:650;color:#6b5b4e;background:#f5e9d6;border-radius:999px;padding:4px 10px}',
-      '.brand-group .charts,.brand-group > :not(summary){padding:0 12px 12px}'
+      '.brand-row{display:flex;align-items:center;gap:16px;padding:20px 22px}',
+      '.brand-mark{width:44px;height:44px;border-radius:14px;background:#221a15;color:#f5e9d6;display:grid;place-items:center;font-weight:700;font-size:16px;flex:none}',
+      '.brand-copy{flex:1;min-width:0}',
+      '.brand-kicker{margin:0 0 2px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#f0521f;font-weight:700}',
+      '.brand-name{margin:0;font-size:26px;line-height:1.1;font-weight:650;letter-spacing:-.03em;color:#221a15}',
+      '.brand-meta{margin:4px 0 0;font-size:13px;color:#6b5b4e}',
+      '.brand-chev{width:28px;height:28px;border-radius:999px;border:1px solid rgba(34,26,21,.12);display:grid;place-items:center;flex:none;transition:transform .2s}',
+      '.brand-chev:before{content:"";width:7px;height:7px;border-right:1.5px solid #221a15;border-bottom:1.5px solid #221a15;transform:rotate(45deg) translate(-1px,-1px)}',
+      '.brand-group[open] .brand-chev{transform:rotate(180deg)}',
+      '.brand-group > :not(summary){margin:0 14px 14px;border-radius:16px}'
     ].join('');
     document.head.appendChild(style);
   }
@@ -88,7 +94,7 @@ document.addEventListener('DOMContentLoaded', function () {
       var details = document.createElement('details');
       details.className = 'brand-group';
       var summary = document.createElement('summary');
-      summary.innerHTML = '<span>' + brand + '</span><span class="brand-count">' + groups[brand].length + '</span>';
+      var n = groups[brand].length; summary.innerHTML = '<div class="brand-row"><span class="brand-mark">' + brand.slice(0,1).toUpperCase() + '</span><div class="brand-copy"><p class="brand-kicker">Brand</p><p class="brand-name">' + brand + '</p><p class="brand-meta">' + n + (n === 1 ? ' garment' : ' garments') + '</p></div><span class="brand-chev"></span></div>';
       details.appendChild(summary);
       groups[brand].forEach(function (card) { details.appendChild(card); });
       frag.appendChild(details);
