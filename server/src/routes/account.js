@@ -40,11 +40,27 @@ async function markPaid(email) {
 async function issueCode(email) {
   const code = makeActivationCode();
   codes.set(email, code);
+  const renews = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
   if (supabaseConfigured()) {
     const { error } = await db().from('activation_codes').insert({ code, email, used: false });
     if (error) throw new HttpError(500, error.message);
+    await db().from('subscriptions').upsert({
+      code, email, paid_at: new Date().toISOString(), renews_at: renews, auto_renew: true, active: true,
+    });
   }
   return code;
+}
+
+async function subscriptionOf(code) {
+  if (!supabaseConfigured()) return null;
+  const { data } = await db().from('subscriptions').select('*').eq('code', code).maybeSingle();
+  if (!data) return null;
+  const expired = data.renews_at && new Date(data.renews_at).getTime() < Date.now();
+  if (expired && data.auto_renew === false && data.active) {
+    await db().from('subscriptions').update({ active: false }).eq('code', code);
+    data.active = false;
+  }
+  return data;
 }
 
 payRoutes.post('/webhook', ah(async (req, res) => {
@@ -215,6 +231,46 @@ payRoutes.post('/dev-claim', ah(async (req, res) => {
   res.json({ code: 'DEVCODE' });
 }));
 
+
+payRoutes.get('/subscription', ah(async (req, res) => {
+  const code = String(req.query.code || '').trim().toUpperCase();
+  if (!code) throw new HttpError(400, 'Enter your code');
+  const sub = await subscriptionOf(code);
+  if (!sub) throw new HttpError(404, 'No subscription for that code');
+  const ms = new Date(sub.renews_at).getTime() - Date.now();
+  res.json({
+    code: sub.code,
+    email: sub.email,
+    active: Boolean(sub.active),
+    autoRenew: sub.auto_renew !== false,
+    renewsAt: sub.renews_at,
+    daysLeft: Math.max(0, Math.ceil(ms / 86400000)),
+  });
+}));
+
+payRoutes.post('/subscription/auto-renew', ah(async (req, res) => {
+  const code = String(req.body?.code || '').trim().toUpperCase();
+  const on = Boolean(req.body?.on);
+  if (!code) throw new HttpError(400, 'Enter your code');
+  if (!supabaseConfigured()) return res.json({ ok: true });
+  const { error } = await db().from('subscriptions').update({ auto_renew: on }).eq('code', code);
+  if (error) throw new HttpError(500, error.message);
+  res.json({ ok: true, autoRenew: on });
+}));
+
+payRoutes.post('/subscription/renew', ah(async (req, res) => {
+  const code = String(req.body?.code || '').trim().toUpperCase();
+  if (!code) throw new HttpError(400, 'Enter your code');
+  const renews = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+  if (supabaseConfigured()) {
+    const { error } = await db().from('subscriptions').update({
+      active: true, auto_renew: true, paid_at: new Date().toISOString(), renews_at: renews,
+    }).eq('code', code);
+    if (error) throw new HttpError(500, error.message);
+  }
+  res.json({ ok: true, renewsAt: renews });
+}));
+
 payRoutes.post('/brand-toggle', ah(async (req, res) => {
   const code = String(req.body?.code || '').trim();
   if (!adminFromReq(req) && code !== '15691569') throw new HttpError(401, 'Log in first');
@@ -352,8 +408,11 @@ chartRoutes.get('/code/:code', ah(async (req, res) => {
     if (data) {
       let active = false;
       if (data.brand) {
-        const act = await db().from('brand_activations').select('brand').eq('brand', data.brand).maybeSingle();
-        active = Boolean(act.data);
+        const act = await db().from('brand_activations').select('brand, code').eq('brand', data.brand).maybeSingle();
+        if (act.data) {
+          const sub = act.data.code && act.data.code !== 'manual' ? await subscriptionOf(act.data.code) : null;
+          active = sub ? Boolean(sub.active) : true;
+        }
       }
       data.active = active;
       return res.json(data);
