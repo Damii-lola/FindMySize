@@ -369,10 +369,11 @@ meRoutes.post('/subscription/cancel', ah(async (req, res) => {
 chartRoutes.post('/brand-sync', ah(async (req, res) => {
   if (!adminFromReq(req)) throw new HttpError(401, 'Log in first');
   const brand = String(req.body?.brand || '').trim();
-  const codes = Array.isArray(req.body?.codes) ? req.body.codes.map((c) => String(c)) : [];
+  const codes = Array.isArray(req.body?.codes) ? req.body.codes.map((c) => String(c)).filter(Boolean) : [];
   const popup = req.body?.popup;
   if (!popup || typeof popup !== 'object') throw new HttpError(400, 'Popup design is required');
   if (!supabaseConfigured()) return res.json({ ok: true, updated: 0 });
+  if (brand) await db().from('brand_designs').upsert({ brand, popup, updated_at: new Date().toISOString() });
   let updated = 0;
   if (codes.length) {
     const { data, error } = await db().from('size_charts').update({ popup }).in('code', codes).select('code');
@@ -380,8 +381,7 @@ chartRoutes.post('/brand-sync', ah(async (req, res) => {
     updated = (data || []).length;
   }
   if (brand) {
-    const { data, error } = await db().from('size_charts').update({ popup }).eq('brand', brand).select('code');
-    if (!error) updated = Math.max(updated, (data || []).length);
+    await db().from('size_charts').update({ popup, brand }).eq('brand', brand);
   }
   res.json({ ok: true, updated });
 }));
@@ -410,6 +410,10 @@ chartRoutes.get('/code/:code', ah(async (req, res) => {
         active = Boolean(act.data);
       }
       data.active = active;
+      if (data.brand) {
+        const design = await db().from('brand_designs').select('popup').eq('brand', data.brand).maybeSingle();
+        if (design.data?.popup) data.popup = design.data.popup;
+      }
       return res.json(data);
     }
   }
