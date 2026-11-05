@@ -69,7 +69,7 @@ payRoutes.post('/wavy-checkout', ah(async (req, res) => {
   const email = emailOf(req.body?.email);
   if (!email || !email.includes('@')) throw new HttpError(400, 'Enter a valid email');
 
-  const amount = Number(req.body?.amount) || 200;
+  const amount = 125;
   const reference = `fms_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   const site = 'https://damii-lola.github.io/FindMySize';
 
@@ -89,9 +89,12 @@ payRoutes.post('/wavy-checkout', ah(async (req, res) => {
     },
     body: JSON.stringify({
       amount,
-      description: 'FindMySize Unlimited',
+      currency: 'USD',
+      description: 'FindMySize Unlimited — monthly',
       email,
       payment_options: 'card',
+      interval: 'monthly',
+      subscription: true,
       merchant_reference: reference,
       success_url: `${site}/auth/?paid=1&email=${encodeURIComponent(email)}&reference=${encodeURIComponent(reference)}`,
       cancel_url: `${site}/register/?cancel=1&reference=${encodeURIComponent(reference)}`,
