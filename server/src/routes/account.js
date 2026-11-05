@@ -24,16 +24,26 @@ function timingEqual(given, secret) {
   return crypto.timingSafeEqual(a, b);
 }
 
+
+async function markPaid(email) {
+  if (!supabaseConfigured()) return;
+  const { error } = await db().from('paid_emails').upsert({
+    email,
+    paid_at: new Date().toISOString(),
+  });
+  if (error) {
+    console.error('[pay] mark paid failed:', error.message);
+    throw new HttpError(500, error.message);
+  }
+  console.log('[pay] marked paid:', email);
+}
 async function issueCode(email) {
   const code = makeActivationCode();
+  codes.set(email, code);
   if (supabaseConfigured()) {
     const { error } = await db().from('activation_codes').insert({ code, email, used: false });
-    if (error) {
-      console.error('[codes] insert failed:', error.message, error.details || '', error.hint || '');
-      throw new HttpError(500, error.message);
-    }
+    if (error) throw new HttpError(500, error.message);
   }
-  codes.set(email, code);
   return code;
 }
 
@@ -158,9 +168,8 @@ payRoutes.post('/wavy', ah(async (req, res) => {
     ?? pendingPays.get(reference)?.email
   );
   if (!email) throw new HttpError(400, 'Wavy webhook has no customer email');
-  const code = await issueCode(email);
+  await markPaid(email);
   res.json({ ok: true, email });
-  console.log(`[wavy] activation code issued for ${email}: ${code}`);
 }));
 
 payRoutes.post('/wavy-claim', ah(async (req, res) => {
@@ -182,13 +191,9 @@ payRoutes.post('/wavy-claim', ah(async (req, res) => {
   if (!paid) paid = await wavyTxPaid(reference);
   if (!paid) throw new HttpError(402, 'Payment not confirmed yet. Wait a moment and try again.');
 
-  const existing = codes.get(email);
-  if (existing) return res.json({ ok: true, code: existing, already: true });
-
-  const code = await issueCode(email);
+  await markPaid(email);
   pendingPays.delete(reference);
-  res.json({ ok: true, code });
-  console.log(`[wavy-claim] code issued for ${email}: ${code}`);
+  res.json({ ok: true, paid: true });
 }));
 
 payRoutes.post('/dev-claim', ah(async (req, res) => {
