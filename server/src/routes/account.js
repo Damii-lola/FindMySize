@@ -226,7 +226,7 @@ payRoutes.post('/brand-toggle', ah(async (req, res) => {
   res.json({ ok: true, brand, active });
 }));
 
-payRoutes.post('/brand-activate, ah(async (req, res) => {
+payRoutes.post('/brand-activate', ah(async (req, res) => {
   if (!adminFromReq(req)) throw new HttpError(401, 'Log in first');
   const code = String(req.body?.code || '').trim().toUpperCase();
   const brand = String(req.body?.brand || '').trim();
@@ -240,7 +240,7 @@ payRoutes.post('/brand-activate, ah(async (req, res) => {
   res.json({ ok: true, brand });
 }));
 
-payRoutes.get('/code, ah(async (req, res) => {
+payRoutes.get('/code', ah(async (req, res) => {
   const email = emailOf(req.query.email);
   if (!email) throw new HttpError(400, 'Email is required');
   if (codes.has(email)) return res.json({ code: codes.get(email) });
