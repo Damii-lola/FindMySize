@@ -289,6 +289,19 @@ meRoutes.post('/subscription/cancel', ah(async (req, res) => {
   res.json({ ok: true, status: 'canceled', paidUntil: current?.paid_until || null });
 }));
 
+
+chartRoutes.post('/brand-sync', ah(async (req, res) => {
+  if (!adminFromReq(req)) throw new HttpError(401, 'Log in first');
+  const brand = String(req.body?.brand || '').trim();
+  const popup = req.body?.popup;
+  if (!brand) throw new HttpError(400, 'Brand is required');
+  if (!popup || typeof popup !== 'object') throw new HttpError(400, 'Popup design is required');
+  if (!supabaseConfigured()) return res.json({ ok: true, updated: 0 });
+  const { data, error } = await db().from('size_charts').update({ popup }).eq('brand', brand).select('code');
+  if (error) throw new HttpError(500, error.message);
+  res.json({ ok: true, updated: (data || []).length });
+}));
+
 chartRoutes.get('/code/:code', ah(async (req, res) => {
   const code = String(req.params.code || '').trim();
   if (!code) throw new HttpError(400, 'Missing chart code');
@@ -342,11 +355,12 @@ chartRoutes.post('/', ah(async (req, res) => {
     const gate = await consume(req, 'charts');
     if (!gate.ok) throw new HttpError(402, gate.error);
   }
-  const row = { id: crypto.randomUUID(), code, name, sex, unit, columns, rows, popup, created_at: new Date().toISOString() };
+  const brand = String(body.brand || '').trim().slice(0, 60);
+  const row = { id: crypto.randomUUID(), code, name, sex, unit, columns, rows, popup, brand, created_at: new Date().toISOString() };
 
   if (supabaseConfigured()) {
     const userId = access.user && !String(access.user.id).startsWith('dev:') ? access.user.id : null;
-    const payload = { code, name, sex, unit, columns, rows, popup };
+    const payload = { code, name, sex, unit, columns, rows, popup, brand };
     if (userId) payload.user_id = userId;
     // Try insert; if the code already exists, update it.
     let { data, error } = await db().from('size_charts').insert(payload).select('id, code, name, sex, unit, columns, rows, popup, created_at').single();
@@ -361,6 +375,9 @@ chartRoutes.post('/', ah(async (req, res) => {
         ({ data, error } = await db().from('size_charts').update(payload).eq('code', code).select('id, code, name, sex, unit, columns, rows, created_at').single());
       }
       if (data) data.popup = popup;
+    }
+    if (!error && data && brand && popup && Object.keys(popup).length) {
+      await db().from('size_charts').update({ popup }).eq('brand', brand);
     }
     if (!error && data) {
       // also keep an in-memory copy so a just-saved chart is readable immediately
