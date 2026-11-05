@@ -331,6 +331,7 @@ meRoutes.get('/', ah(async (req, res) => {
 }));
 
 meRoutes.get('/subscription', ah(async (req, res) => {
+  if (adminFromReq(req)) return res.json({ plan: 'unlimited', status: 'active', active: true });
   const access = await isUnlimited(req);
   res.json({
     plan: access.unlimited ? 'unlimited' : 'free',
@@ -423,7 +424,7 @@ chartRoutes.get('/', ah(async (req, res) => {
 
 chartRoutes.post('/', ah(async (req, res) => {
   if (!adminFromReq(req)) throw new HttpError(401, 'Log in first');
-  const access = await isUnlimited(req);
+  const access = { unlimited: true, user: null };
   const body = req.body || {};
   const name = String(body.name || '').trim().slice(0, 60);
   if (!name) throw new HttpError(400, 'Name the chart');
@@ -434,7 +435,7 @@ chartRoutes.post('/', ah(async (req, res) => {
   const popup = body.popup && typeof body.popup === 'object' && !Array.isArray(body.popup) ? body.popup : {};
   // Existing code means an update (used by logged-out edits). Otherwise mint one.
   const code = String(body.code || '').trim() || crypto.randomBytes(6).toString('hex');
-  if (!access.unlimited && !body.code) {
+  if (false) {
     const gate = await consume(req, 'charts');
     if (!gate.ok) throw new HttpError(402, gate.error);
   }
