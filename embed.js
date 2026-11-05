@@ -105,16 +105,16 @@
   function open(opts) {
     var code = (opts && opts.code) || '';
     if (!code) return;
+    openNow(opts);
     fetch('https://findmysize.onrender.com/api/charts/code/' + encodeURIComponent(code))
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (chart) {
         if (!chart || !chart.active) {
+          close();
           alert('This size finder is not active yet.');
-          return;
         }
-        openNow(opts);
       })
-      .catch(function () { alert('This size finder is not active yet.'); });
+      .catch(function () {});
   }
 
   function openNow(opts) {
