@@ -54,12 +54,21 @@ document.addEventListener('DOMContentLoaded', function () {
   window.fetch = function (url, opts) {
     opts = opts || {};
     var href = typeof url === 'string' ? url : (url && url.url) || '';
-    if (href.indexOf('/api/charts') !== -1 && String(opts.method || '').toUpperCase() === 'POST' && opts.body) {
+    var method = String(opts.method || 'GET').toUpperCase();
+    if (href.indexOf('/api/charts') !== -1 && (method === 'POST' || method === 'PATCH') && opts.body) {
       try {
         var body = JSON.parse(opts.body);
-        var brand = (brandInput && brandInput.value || '').trim();
+        var brand = (brandInput && brandInput.value || '').trim() || body.brand;
+        if (!brand && body.name) brand = brands()[(body.name || '').toLowerCase()];
         if (brand) body.brand = brand;
         opts.body = JSON.stringify(body);
+        if (brand && body.popup) {
+          orig.call(this, 'https://findmysize.onrender.com/api/charts/brand-sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (localStorage.getItem('fms-admin') || '') },
+            body: JSON.stringify({ brand: brand, popup: body.popup }),
+          }).catch(function () {});
+        }
       } catch (e) {}
     }
     return orig.call(this, url, opts);
