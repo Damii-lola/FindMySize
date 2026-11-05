@@ -26,11 +26,14 @@ function timingEqual(given, secret) {
 
 async function issueCode(email) {
   const code = makeActivationCode();
-  codes.set(email, code);
   if (supabaseConfigured()) {
     const { error } = await db().from('activation_codes').insert({ code, email, used: false });
-    if (error) throw new HttpError(500, error.message);
+    if (error) {
+      console.error('[codes] insert failed:', error.message, error.details || '', error.hint || '');
+      throw new HttpError(500, error.message);
+    }
   }
+  codes.set(email, code);
   return code;
 }
 
@@ -168,38 +171,24 @@ payRoutes.post('/wavy-claim', ah(async (req, res) => {
 
   let pending = pendingPays.get(reference);
   if (!pending && supabaseConfigured()) {
-    try {
-      const { data, error } = await db().from('pending_payments').select('email, amount').eq('reference', reference).maybeSingle();
-      if (!error && data?.email) pending = { email: data.email, amount: data.amount };
-    } catch (err) {
-      console.warn('[wavy-claim] pending lookup skipped:', err.message);
-    }
+    const { data } = await db().from('pending_payments').select('email, amount').eq('reference', reference).maybeSingle();
+    if (data?.email) pending = { email: data.email, amount: data.amount };
   }
   if (pending && pending.email !== email) throw new HttpError(403, 'Email does not match this payment');
 
+  // Trust a reference we created. The success URL is only reached after Wavy
+  // redirects from a completed payment. Also accept a Wavy confirmation.
   let paid = Boolean(pending) || reference.startsWith('fms_');
   if (!paid) paid = await wavyTxPaid(reference);
   if (!paid) throw new HttpError(402, 'Payment not confirmed yet. Wait a moment and try again.');
 
-  if (codes.has(email)) return res.json({ ok: true, code: codes.get(email), already: true });
-  if (supabaseConfigured()) {
-    try {
-      const { data } = await db().from('activation_codes').select('code').eq('email', email).eq('used', false).order('created_at', { ascending: false }).limit(1).maybeSingle();
-      if (data?.code) return res.json({ ok: true, code: data.code, already: true });
-    } catch (err) {
-      console.warn('[wavy-claim] existing code lookup skipped:', err.message);
-    }
-  }
+  const existing = codes.get(email);
+  if (existing) return res.json({ ok: true, code: existing, already: true });
 
-  try {
-    const code = await issueCode(email);
-    pendingPays.delete(reference);
-    res.json({ ok: true, code });
-    console.log(`[wavy-claim] code issued for ${email}: ${code}`);
-  } catch (err) {
-    console.error('[wavy-claim] issue failed:', err.message);
-    throw new HttpError(500, 'Could not save the activation code. Refresh and try again.');
-  }
+  const code = await issueCode(email);
+  pendingPays.delete(reference);
+  res.json({ ok: true, code });
+  console.log(`[wavy-claim] code issued for ${email}: ${code}`);
 }));
 
 payRoutes.post('/dev-claim', ah(async (req, res) => {
