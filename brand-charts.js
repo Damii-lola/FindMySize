@@ -58,23 +58,14 @@ document.addEventListener('DOMContentLoaded', function () {
     if (href.indexOf('/api/charts') !== -1 && (method === 'POST' || method === 'PATCH') && opts.body) {
       try {
         var body = JSON.parse(opts.body);
-        var brand = (brandInput && brandInput.value || '').trim() || body.brand;
-        if (!brand && body.name) brand = brands()[(body.name || '').toLowerCase()];
+        var brand = (brandInput && brandInput.value || '').trim();
         if (brand) body.brand = brand;
         opts.body = JSON.stringify(body);
         if (brand && body.popup) {
-          var map = brands();
-          var codes = Object.keys(map).filter(function (name) { return map[name] === brand; })
-            .map(function (name) {
-              var card = Array.from(document.querySelectorAll('.chart-card')).find(function (c) {
-                return ((c.querySelector('h3, .chart-name, strong') || {}).textContent || '').trim().toLowerCase() === name;
-              });
-              return card && card.dataset.code;
-            }).filter(Boolean);
           orig.call(this, 'https://findmysize.onrender.com/api/charts/brand-sync', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (localStorage.getItem('fms-admin') || '') },
-            body: JSON.stringify({ brand: brand, popup: body.popup, codes: codes }),
+            body: JSON.stringify({ brand: brand, popup: body.popup }),
           }).catch(function () {});
         }
       } catch (e) {}
@@ -90,6 +81,7 @@ document.addEventListener('DOMContentLoaded', function () {
       map[name.toLowerCase()] = brand;
       saveBrands(map);
       fillList();
+      setTimeout(function () { if (brandInput) brandInput.value = ''; }, 300);
     }
   }, true);
 
