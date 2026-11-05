@@ -24,7 +24,7 @@ document.addEventListener('DOMContentLoaded', function () {
       '.brand-chev{width:28px;height:28px;border-radius:999px;border:1px solid rgba(34,26,21,.12);display:grid;place-items:center;flex:none;transition:transform .2s}',
       '.brand-chev:before{content:"";width:7px;height:7px;border-right:1.5px solid #221a15;border-bottom:1.5px solid #221a15;transform:rotate(45deg) translate(-1px,-1px)}',
       '.brand-group[open] .brand-chev{transform:rotate(180deg)}',
-      '.brand-group > :not(summary){margin:0 14px 14px;border-radius:16px}'
+      '.brand-group > :not(summary){margin:0 14px 14px;border-radius:16px}','.brand-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:0 22px 16px}','.brand-actions input{padding:8px 12px;border-radius:999px;border:1px solid rgba(34,26,21,.16);font:inherit}','.brand-actions button{border-radius:999px;padding:8px 14px;font:inherit;font-weight:650;cursor:pointer}','.brand-on{background:#e7f6ee;color:#157347}','.brand-off{background:#fff4e8;color:#9a4d12}','.brand-primary{background:#f0521f;color:#fff;border:0}','.brand-ghost{background:#fff;border:1px solid rgba(34,26,21,.16)}','.brand-group [data-act="preview"]{display:none}'
     ].join('');
     document.head.appendChild(style);
   }
@@ -32,6 +32,7 @@ document.addEventListener('DOMContentLoaded', function () {
   if (localStorage.getItem('fms-admin') && free) free.hidden = true;
 
   function brands() { try { return JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) { return {}; } }
+  function activations() { try { return JSON.parse(localStorage.getItem('fms-brand-active') || '{}'); } catch (e) { return {}; } }
   function saveBrands(map) { localStorage.setItem(KEY, JSON.stringify(map)); }
   function known() {
     var set = {};
@@ -94,8 +95,39 @@ document.addEventListener('DOMContentLoaded', function () {
       var details = document.createElement('details');
       details.className = 'brand-group';
       var summary = document.createElement('summary');
-      var n = groups[brand].length; summary.innerHTML = '<div class="brand-row"><span class="brand-mark">' + brand.slice(0,1).toUpperCase() + '</span><div class="brand-copy"><p class="brand-kicker">Brand</p><p class="brand-name">' + brand + '</p><p class="brand-meta">' + n + (n === 1 ? ' garment' : ' garments') + '</p></div><span class="brand-chev"></span></div>';
+      var n = groups[brand].length;
+      var active = activations()[brand.toLowerCase()];
+      summary.innerHTML = '<div class="brand-row"><span class="brand-mark">' + brand.slice(0,1).toUpperCase() + '</span><div class="brand-copy"><p class="brand-kicker">Brand</p><p class="brand-name">' + brand + '</p><p class="brand-meta">' + n + (n === 1 ? ' garment' : ' garments') + '</p></div><span class="' + (active ? 'brand-on' : 'brand-off') + '" style="border-radius:999px;padding:4px 10px;font-size:12px;font-weight:700">' + (active ? 'Activated' : 'Not activated') + '</span><span class="brand-chev"></span></div>';
       details.appendChild(summary);
+      var actions = document.createElement('div');
+      actions.className = 'brand-actions';
+      actions.innerHTML = (active ? '' : '<input placeholder="Activation code" data-code /><button type="button" class="brand-ghost" data-activate>Activate</button>') + '<button type="button" class="brand-primary" data-customise>Preview & Customise Popup</button>';
+      details.appendChild(actions);
+      actions.addEventListener('click', function (e) { e.stopPropagation(); });
+      var customise = actions.querySelector('[data-customise]');
+      customise.addEventListener('click', function () {
+        var btn = details.querySelector('[data-act="preview"]');
+        if (btn) btn.click();
+      });
+      var activate = actions.querySelector('[data-activate]');
+      if (activate) activate.addEventListener('click', async function () {
+        var code = (actions.querySelector('[data-code]').value || '').trim();
+        if (!code) return;
+        activate.disabled = true;
+        try {
+          var res = await fetch('https://findmysize.onrender.com/api/pay/brand-activate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (localStorage.getItem('fms-admin') || '') },
+            body: JSON.stringify({ brand: brand, code: code }),
+          });
+          var data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Could not activate');
+          var map = activations();
+          map[brand.toLowerCase()] = code;
+          localStorage.setItem('fms-brand-active', JSON.stringify(map));
+          group();
+        } catch (err) { alert(err.message); activate.disabled = false; }
+      });
       groups[brand].forEach(function (card) { details.appendChild(card); });
       frag.appendChild(details);
     });
