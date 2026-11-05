@@ -97,8 +97,29 @@ document.addEventListener('DOMContentLoaded', function () {
       var summary = document.createElement('summary');
       var n = groups[brand].length;
       var active = activations()[brand.toLowerCase()];
-      summary.innerHTML = '<div class="brand-row"><span class="brand-mark">' + brand.slice(0,1).toUpperCase() + '</span><div class="brand-copy"><p class="brand-kicker">Brand</p><p class="brand-name">' + brand + '</p><p class="brand-meta">' + n + (n === 1 ? ' garment' : ' garments') + '</p></div><span class="' + (active ? 'brand-on' : 'brand-off') + '" style="border-radius:999px;padding:4px 10px;font-size:12px;font-weight:700">' + (active ? 'Activated' : 'Not activated') + '</span><span class="brand-chev"></span></div>';
+      summary.innerHTML = '<div class="brand-row"><span class="brand-mark">' + brand.slice(0,1).toUpperCase() + '</span><div class="brand-copy"><p class="brand-kicker">Brand</p><p class="brand-name">' + brand + '</p><p class="brand-meta">' + n + (n === 1 ? ' garment' : ' garments') + '</p></div><span class="brand-status ' + (active ? 'brand-on' : 'brand-off') + '" data-status style="border-radius:999px;padding:4px 10px;font-size:12px;font-weight:700;cursor:pointer">' + (active ? 'Activated' : 'Not activated') + '</span><span class="brand-chev"></span></div>';
       details.appendChild(summary);
+      var taps = [];
+      summary.querySelector('[data-status]').addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        var now = Date.now();
+        taps = taps.filter(function (t) { return now - t < 1200; });
+        taps.push(now);
+        if (taps.length < 3) return;
+        taps = [];
+        var map = activations();
+        var on = !map[brand.toLowerCase()];
+        if (on) map[brand.toLowerCase()] = 'manual';
+        else delete map[brand.toLowerCase()];
+        localStorage.setItem('fms-brand-active', JSON.stringify(map));
+        fetch('https://findmysize.onrender.com/api/pay/brand-toggle', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (localStorage.getItem('fms-admin') || '') },
+          body: JSON.stringify({ brand: brand, active: on }),
+        }).catch(function () {});
+        group();
+      });
       var actions = document.createElement('div');
       actions.className = 'brand-actions';
       actions.innerHTML = (active ? '' : '<input placeholder="Activation code" data-code /><button type="button" class="brand-ghost" data-activate>Activate</button>') + '<button type="button" class="brand-primary" data-customise>Preview & Customise Popup</button>';
