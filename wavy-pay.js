@@ -24,6 +24,7 @@ document.addEventListener('DOMContentLoaded', function () {
       });
       var data = await res.json();
       if (!res.ok || !data.url) throw new Error(data.error || 'Could not start checkout');
+      try { sessionStorage.setItem('fms-pay', JSON.stringify({ email: email, reference: data.reference })); } catch (e) {}
       location.href = data.url;
     } catch (err) {
       alert(err.message || 'Checkout failed. Try again.');
