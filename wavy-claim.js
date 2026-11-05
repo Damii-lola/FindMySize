@@ -33,7 +33,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       status.style.color = '#f0521f';
       try { sessionStorage.removeItem('fms-pay'); } catch (e) {}
     } catch (err) {
-      status.textContent = err.message || 'Payment not confirmed yet. Refresh in a minute.';
+      if (!document.getElementById('code-display')?.textContent?.trim()) status.textContent = err.message || 'Payment not confirmed yet. Refresh in a minute.';
     }
   }
   claim();
