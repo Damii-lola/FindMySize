@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FindMySize — Subscribe</title>
+  <link rel="stylesheet" href="/FindMySize/assets/theme-B_KWcFXd.css" />
+  <style>
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #f5e9d6; color: #221a15; font-family: "Instrument Sans", system-ui, sans-serif; }
+    .card { width: min(420px, calc(100% - 32px)); background: #fffaf3; border: 1px solid rgba(34,26,21,.12); border-radius: 20px; padding: 28px; }
+    h1 { margin: 0 0 8px; font-size: 32px; }
+    p { margin: 0 0 18px; color: #6b5b4e; }
+    s { opacity: .55; margin-right: 8px; }
+    label { display: block; font-size: 13px; font-weight: 650; margin-bottom: 6px; }
+    input { width: 100%; box-sizing: border-box; padding: 12px 14px; border-radius: 12px; border: 1px solid rgba(34,26,21,.18); font: inherit; margin-bottom: 14px; }
+    button { width: 100%; border: 0; border-radius: 999px; background: #f0521f; color: #fff; font: inherit; font-weight: 700; padding: 14px; cursor: pointer; }
+    button:disabled { opacity: .6; }
+    .status { min-height: 1.2em; margin-top: 12px; font-weight: 650; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1>FindMySize</h1>
+    <p><s>$225</s><strong>$125/month</strong>. We set up your size charts, put them on your site, and keep them updated.</p>
+    <form id="pay-form">
+      <label for="email">Email</label>
+      <input id="email" type="email" required placeholder="you@brand.com" autocomplete="email" />
+      <button id="pay-btn" type="submit">Continue to payment</button>
+    </form>
+    <p class="status" id="status"></p>
+  </main>
+  <script>
+    document.getElementById('pay-form').addEventListener('submit', async function (e) {
+      e.preventDefault();
+      var email = document.getElementById('email').value.trim();
+      var btn = document.getElementById('pay-btn');
+      var status = document.getElementById('status');
+      btn.disabled = true;
+      status.textContent = 'Opening payment…';
+      try {
+        var res = await fetch('https://findmysize.onrender.com/api/pay/wavy-checkout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: email }),
+        });
+        var data = await res.json();
+        if (!res.ok || !data.url) throw new Error(data.error || 'Could not start checkout');
+        location.href = data.url;
+      } catch (err) {
+        status.textContent = err.message || 'Checkout failed';
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
