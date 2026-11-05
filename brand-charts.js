@@ -105,6 +105,20 @@ document.addEventListener('DOMContentLoaded', function () {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (localStorage.getItem('fms-admin') || '') },
             body: JSON.stringify({ brand: designBrand, popup: body.popup, codes: codes }),
+          }).then(function () {
+            var btn = body.popup.button || {};
+            var extra = '';
+            if (btn.bg) extra += ' data-color="' + btn.bg + '"';
+            if (btn.textColor) extra += ' data-text-color="' + btn.textColor + '"';
+            if (btn.label && btn.label !== 'Find My Size') extra += ' data-label="' + btn.label + '"';
+            document.querySelectorAll('.brand-group').forEach(function (g) {
+              if (((g.querySelector('.brand-name') || {}).textContent || '') !== designBrand) return;
+              g.querySelectorAll('.chart-card').forEach(function (card) {
+                var box = card.querySelector('.chart-snippet-box');
+                if (!box || !card.dataset.code) return;
+                box.value = '<script src="https://damii-lola.github.io/FindMySize/embed.js" data-chart="' + card.dataset.code + '"' + extra + '><\/script>';
+              });
+            });
           }).catch(function () {});
         }
       } catch (e) {}
