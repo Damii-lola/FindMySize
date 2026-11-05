@@ -9,15 +9,16 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (!reference) reference = stored.reference || '';
     }
   } catch (e) {}
+  if (!params.get('paid') && !reference) return;
 
-  const box = document.querySelector('.auth-lead') || document.querySelector('main') || document.body;
+  const box = document.querySelector('main') || document.querySelector('h1') || document.body;
   const status = document.createElement('p');
-  status.style.cssText = 'margin:12px 0;font-weight:600;';
+  status.style.cssText = 'margin:12px auto;max-width:420px;font-weight:600;text-align:center;';
   status.textContent = 'Confirming your payment…';
-  if (box && box.parentNode) box.parentNode.insertBefore(status, box.nextSibling);
+  if (box && box.parentNode) box.parentNode.insertBefore(status, box);
 
   if (!email.includes('@') || !reference) {
-    status.textContent = 'Could not find the payment details. Go back and pay again.';
+    status.textContent = 'Payment received. Log in with the email you paid with.';
     return;
   }
   try {
@@ -29,8 +30,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const data = await res.json();
     if (!res.ok || !data.paid) throw new Error(data.error || 'Could not confirm payment');
     try { sessionStorage.removeItem('fms-pay'); } catch (e) {}
-    status.textContent = 'Payment confirmed. Taking you to login…';
-    setTimeout(() => { location.href = '/FindMySize/register/?paid=1'; }, 800);
+    status.textContent = 'Payment confirmed. Log in with ' + email + ' and the code from your email.';
+    const emailInput = document.querySelector('input[type="email"]');
+    if (emailInput && !emailInput.value) emailInput.value = email;
   } catch (err) {
     status.textContent = err.message || 'Payment not confirmed yet. Refresh in a minute.';
   }
