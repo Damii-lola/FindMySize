@@ -23,6 +23,14 @@ if (new URLSearchParams(location.search).get('embed') === '1') {
               + 'html.embed body.app .stage{background:' + bg + ';color:' + text + ';border-radius:' + radius + 'px}';
             document.head.appendChild(style);
           }
+          if (chart && chart.active === false) {
+            root.classList.remove('pu-pending');
+            document.addEventListener('DOMContentLoaded', function () {
+              var stage = document.querySelector('.stage') || document.body;
+              stage.innerHTML = '<p style="padding:24px;text-align:center;font-weight:650">This size finder is not active yet.</p>';
+            });
+            return;
+          }
           root.classList.remove('pu-pending');
         })
         .catch(function () { root.classList.remove('pu-pending'); });
