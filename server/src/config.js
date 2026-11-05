@@ -92,6 +92,9 @@ export const config = Object.freeze({
   wavyCheckoutUrl: process.env.WAVY_CHECKOUT_URL || '',
   wavyApiBase: (process.env.WAVY_API_BASE || 'https://api.wavy.ng').replace(/\/$/, ''),
   adminEmail: (process.env.ADMIN_EMAIL || '').toLowerCase().trim(),
+  adminUser: (process.env.ADMIN_USERNAME || '').trim(),
+  adminPassword: process.env.ADMIN_PASSWORD || '',
+  adminTokenSecret: process.env.ADMIN_TOKEN_SECRET || process.env.ADMIN_PASSWORD || 'fms-admin',
   gmail: Object.freeze({
     user: process.env.GMAIL_USER || '',
     pass: process.env.GmailAPI || process.env.GMAIL_API || '',
