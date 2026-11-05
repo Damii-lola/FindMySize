@@ -46,15 +46,37 @@ document.addEventListener('DOMContentLoaded', function () {
     return Object.keys(set).sort();
   }
   function fillList() {
-    if (!brandList) return;
-    brandList.innerHTML = '';
-    known().forEach(function (b) {
-      var opt = document.createElement('option');
-      opt.value = b;
-      brandList.appendChild(opt);
+    var box = document.getElementById('brand-suggest');
+    if (!box) return;
+    var q = (brandInput && brandInput.value || '').trim().toLowerCase();
+    var items = known().filter(function (b) { return !q || b.toLowerCase().indexOf(q) !== -1; });
+    box.innerHTML = '';
+    if (!items.length) { box.hidden = true; return; }
+    items.forEach(function (b) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = b;
+      btn.style.cssText = 'display:block;width:100%;text-align:left;padding:8px 12px;border:0;background:#fff;font:inherit;cursor:pointer';
+      btn.addEventListener('mousedown', function (e) {
+        e.preventDefault();
+        brandInput.value = b;
+        box.hidden = true;
+      });
+      box.appendChild(btn);
     });
+    box.hidden = false;
   }
-  fillList();
+  if (brandInput && brandList) {
+    var box = document.createElement('div');
+    box.id = 'brand-suggest';
+    box.hidden = true;
+    box.style.cssText = 'position:absolute;z-index:20;background:#fff;border:1px solid rgba(34,26,21,.16);border-radius:12px;margin-top:4px;max-height:180px;overflow:auto;width:100%';
+    brandInput.parentElement.style.position = 'relative';
+    brandInput.parentElement.appendChild(box);
+    brandInput.addEventListener('focus', fillList);
+    brandInput.addEventListener('input', fillList);
+    brandInput.addEventListener('blur', function () { setTimeout(function () { box.hidden = true; }, 150); });
+  }
 
   var orig = window.fetch;
   window.fetch = function (url, opts) {
@@ -128,7 +150,7 @@ document.addEventListener('DOMContentLoaded', function () {
       details.appendChild(summary);
       var actions = document.createElement('div');
       actions.className = 'brand-actions';
-      actions.innerHTML = '<input placeholder="Activation code" data-code /><button type="button" class="brand-ghost" data-activate>' + (active ? 'Deactivate' : 'Activate') + '</button><button type="button" class="brand-primary" data-customise>Preview & Customise Popup</button>';
+      actions.innerHTML = '<input placeholder="Activation code" data-code /><button type="button" class="brand-ghost" data-activate>' + (active ? 'Deactivate' : 'Activate') + '</button><button type="button" class="brand-primary" data-customise>Preview & Customise Popup</button><button type="button" class="brand-ghost" data-delete-brand>Delete brand</button>';
       details.appendChild(actions);
       actions.addEventListener('click', function (e) { e.stopPropagation(); });
       var customise = actions.querySelector('[data-customise]');
@@ -136,6 +158,21 @@ document.addEventListener('DOMContentLoaded', function () {
         window.__fmsBrand = brand;
         var btn = details.querySelector('[data-act="preview"]');
         if (btn) btn.click();
+      });
+      actions.querySelector('[data-delete-brand]').addEventListener('click', async function () {
+        var n = groups[brand].length;
+        if (!confirm('Delete ' + brand + ' and its ' + n + (n === 1 ? ' chart' : ' charts') + '? This cannot be undone.')) return;
+        var codes = Array.from(details.querySelectorAll('.chart-card')).map(function (c) { return c.dataset.code; }).filter(Boolean);
+        for (var i = 0; i < codes.length; i++) {
+          await fetch('https://findmysize.onrender.com/api/charts/code/' + encodeURIComponent(codes[i]), {
+            method: 'DELETE',
+            headers: { Authorization: 'Bearer ' + (localStorage.getItem('fms-admin') || '') },
+          }).catch(function () {});
+        }
+        var map = brands();
+        Object.keys(map).forEach(function (name) { if (map[name] === brand) delete map[name]; });
+        saveBrands(map);
+        details.remove();
       });
       var activate = actions.querySelector('[data-activate]');
       if (activate) activate.addEventListener('click', async function () {
@@ -177,3 +214,16 @@ document.addEventListener('DOMContentLoaded', function () {
   setTimeout(group, 600);
   setTimeout(group, 1500);
 });
+
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest && e.target.closest('[data-act="delete"]');
+    if (!btn || btn.dataset.confirmed) return;
+    var card = btn.closest('.chart-card');
+    var name = ((card && card.querySelector('h3, .chart-name, strong')) || {}).textContent || 'this chart';
+    if (!confirm('Delete ' + name.trim() + '? This cannot be undone.')) {
+      e.preventDefault();
+      e.stopPropagation();
+    } else {
+      btn.dataset.confirmed = '1';
+    }
+  }, true);
