@@ -40,6 +40,8 @@
   <script>
     var API = 'https://findmysize.onrender.com/api/pay';
     var current = '';
+    var fromUrl = new URLSearchParams(location.search).get('code');
+    if (fromUrl) document.getElementById('code').value = fromUrl;
     async function load(code) {
       var res = await fetch(API + '/subscription?code=' + encodeURIComponent(code));
       var data = await res.json();
@@ -54,6 +56,7 @@
       document.getElementById('toggle').textContent = data.autoRenew ? 'Turn off auto-renewal' : 'Turn on auto-renewal';
       document.getElementById('toggle').dataset.on = data.autoRenew ? '0' : '1';
     }
+    if (fromUrl) load(fromUrl).catch(function (err) { document.getElementById('msg').textContent = err.message; });
     document.getElementById('look').addEventListener('submit', async function (e) {
       e.preventDefault();
       var msg = document.getElementById('msg');
