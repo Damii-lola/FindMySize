@@ -383,11 +383,11 @@ chartRoutes.get('/code/:code', ah(async (req, res) => {
   if (!code) throw new HttpError(400, 'Missing chart code');
   if (supabaseConfigured()) {
     let { data, error } = await db().from('size_charts')
-      .select('code, name, sex, unit, columns, rows, popup')
+      .select('code, name, sex, unit, columns, rows, popup, brand')
       .eq('code', code)
       .maybeSingle();
     // popup column may not exist yet on older databases — retry without it
-    if (error && /popup/i.test(error.message || '')) {
+    if (error && /brand|popup/i.test(error.message || '')) {
       ({ data, error } = await db().from('size_charts')
         .select('code, name, sex, unit, columns, rows')
         .eq('code', code)
@@ -398,7 +398,7 @@ chartRoutes.get('/code/:code', ah(async (req, res) => {
     if (data) {
       let active = false;
       if (data.brand) {
-        const act = await db().from('brand_activations').select('brand').eq('brand', data.brand).maybeSingle();
+        const act = await db().from('brand_activations').select('brand').ilike('brand', data.brand).maybeSingle();
         active = Boolean(act.data);
       }
       data.active = active;
@@ -452,7 +452,7 @@ chartRoutes.post('/', ah(async (req, res) => {
       ({ data, error } = await db().from('size_charts').update(payload).eq('code', code).select('id, code, name, sex, unit, columns, rows, popup, created_at').single());
     }
     // popup column may be missing on older databases
-    if (error && /popup/i.test(error.message || '')) {
+    if (error && /brand|popup/i.test(error.message || '')) {
       delete payload.popup;
       ({ data, error } = await db().from('size_charts').insert(payload).select('id, code, name, sex, unit, columns, rows, created_at').single());
       if (error && String(error.code) === '23505') {
