@@ -40,27 +40,11 @@ async function markPaid(email) {
 async function issueCode(email) {
   const code = makeActivationCode();
   codes.set(email, code);
-  const renews = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
   if (supabaseConfigured()) {
     const { error } = await db().from('activation_codes').insert({ code, email, used: false });
     if (error) throw new HttpError(500, error.message);
-    await db().from('subscriptions').upsert({
-      code, email, paid_at: new Date().toISOString(), renews_at: renews, auto_renew: true, active: true,
-    });
   }
   return code;
-}
-
-async function subscriptionOf(code) {
-  if (!supabaseConfigured()) return null;
-  const { data } = await db().from('subscriptions').select('*').eq('code', code).maybeSingle();
-  if (!data) return null;
-  const expired = data.renews_at && new Date(data.renews_at).getTime() < Date.now();
-  if (expired && data.auto_renew === false && data.active) {
-    await db().from('subscriptions').update({ active: false }).eq('code', code);
-    data.active = false;
-  }
-  return data;
 }
 
 payRoutes.post('/webhook', ah(async (req, res) => {
@@ -97,32 +81,27 @@ payRoutes.post('/wavy-checkout', ah(async (req, res) => {
     }).then(() => {}).catch((err) => console.warn('[wavy] pending store failed', err.message));
   }
 
-  const response = await fetch(`${config.wavyApiBase}/api/gateway/v1/checkout`, {
+  // Real Wavy subscription plan. Renewals are charged by Wavy + Flutterwave.
+  const planRes = await fetch(`${config.wavyApiBase}/api/payments/subscriptions/plans`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${secret}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
+      name: 'FindMySize Unlimited',
+      description: 'Monthly size-chart setup and maintenance',
       amount,
       currency: 'USD',
-      description: 'FindMySize Unlimited — monthly',
-      email,
-      payment_options: 'card',
       interval: 'monthly',
-      subscription: true,
-      merchant_reference: reference,
-      success_url: `${site}/auth/?paid=1&email=${encodeURIComponent(email)}&reference=${encodeURIComponent(reference)}`,
-      cancel_url: `${site}/register/?cancel=1&reference=${encodeURIComponent(reference)}`,
     }),
   });
-
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new HttpError(response.status || 502, data.message || data.error || 'Wavy checkout failed');
-
-  const url = data.authorization_url || data.checkout_url || data.url || data.data?.authorization_url;
-  if (!url) throw new HttpError(502, 'Wavy did not return a checkout URL');
-  res.json({ url, reference });
+  const plan = await planRes.json().catch(() => ({}));
+  if (!planRes.ok) throw new HttpError(planRes.status || 502, plan.error || plan.message || 'Could not create the subscription plan');
+  const planId = plan.plan?._id || plan.plan?.id || plan._id || plan.id;
+  if (!planId) throw new HttpError(502, 'Wavy did not return a plan id');
+  const url = `https://wavy.ng/subscribe.html?plan=${encodeURIComponent(planId)}&email=${encodeURIComponent(email)}`;
+  res.json({ url, reference, planId });
 }));
 
 async function wavyTxPaid(reference) {
@@ -229,46 +208,6 @@ payRoutes.post('/dev-claim', ah(async (req, res) => {
   if (!email) throw new HttpError(400, 'Email is required');
   codes.set(email, 'DEVCODE');
   res.json({ code: 'DEVCODE' });
-}));
-
-
-payRoutes.get('/subscription', ah(async (req, res) => {
-  const code = String(req.query.code || '').trim().toUpperCase();
-  if (!code) throw new HttpError(400, 'Enter your code');
-  const sub = await subscriptionOf(code);
-  if (!sub) throw new HttpError(404, 'No subscription for that code');
-  const ms = new Date(sub.renews_at).getTime() - Date.now();
-  res.json({
-    code: sub.code,
-    email: sub.email,
-    active: Boolean(sub.active),
-    autoRenew: sub.auto_renew !== false,
-    renewsAt: sub.renews_at,
-    daysLeft: Math.max(0, Math.ceil(ms / 86400000)),
-  });
-}));
-
-payRoutes.post('/subscription/auto-renew', ah(async (req, res) => {
-  const code = String(req.body?.code || '').trim().toUpperCase();
-  const on = Boolean(req.body?.on);
-  if (!code) throw new HttpError(400, 'Enter your code');
-  if (!supabaseConfigured()) return res.json({ ok: true });
-  const { error } = await db().from('subscriptions').update({ auto_renew: on }).eq('code', code);
-  if (error) throw new HttpError(500, error.message);
-  res.json({ ok: true, autoRenew: on });
-}));
-
-payRoutes.post('/subscription/renew', ah(async (req, res) => {
-  const code = String(req.body?.code || '').trim().toUpperCase();
-  if (!code) throw new HttpError(400, 'Enter your code');
-  const renews = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
-  if (supabaseConfigured()) {
-    const { error } = await db().from('subscriptions').update({
-      active: true, auto_renew: true, paid_at: new Date().toISOString(), renews_at: renews,
-    }).eq('code', code);
-    if (error) throw new HttpError(500, error.message);
-  }
-  res.json({ ok: true, renewsAt: renews });
 }));
 
 payRoutes.post('/brand-toggle', ah(async (req, res) => {
@@ -408,11 +347,8 @@ chartRoutes.get('/code/:code', ah(async (req, res) => {
     if (data) {
       let active = false;
       if (data.brand) {
-        const act = await db().from('brand_activations').select('brand, code').eq('brand', data.brand).maybeSingle();
-        if (act.data) {
-          const sub = act.data.code && act.data.code !== 'manual' ? await subscriptionOf(act.data.code) : null;
-          active = sub ? Boolean(sub.active) : true;
-        }
+        const act = await db().from('brand_activations').select('brand').eq('brand', data.brand).maybeSingle();
+        active = Boolean(act.data);
       }
       data.active = active;
       return res.json(data);
