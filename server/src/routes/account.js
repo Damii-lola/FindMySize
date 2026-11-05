@@ -337,7 +337,15 @@ chartRoutes.get('/code/:code', ah(async (req, res) => {
       if (data) data.popup = {};
     }
     if (error) throw new HttpError(500, error.message);
-    if (data) return res.json(data);
+    if (data) {
+      let active = false;
+      if (data.brand) {
+        const act = await db().from('brand_activations').select('brand').eq('brand', data.brand).maybeSingle();
+        active = Boolean(act.data);
+      }
+      data.active = active;
+      return res.json(data);
+    }
   }
   for (const list of charts.values()) {
     const found = list.find((c) => c.code === code);
