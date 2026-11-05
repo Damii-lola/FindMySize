@@ -202,7 +202,10 @@ document.addEventListener('DOMContentLoaded', function () {
           var res = await fetch('https://findmysize.onrender.com/api/pay/brand-toggle', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (localStorage.getItem('fms-admin') || '') },
-            body: JSON.stringify({ brand: brand, active: on, code: code }),
+            body: JSON.stringify({
+            brand: brand, active: on, code: code,
+            codes: Array.from(details.querySelectorAll('.chart-card')).map(function (c) { return c.dataset.code; }).filter(Boolean),
+          }),
           });
           var data = await res.json();
           if (!res.ok) throw new Error(data.error || 'Could not update');
@@ -229,8 +232,23 @@ document.addEventListener('DOMContentLoaded', function () {
     search.placeholder = 'Search brands';
     search.addEventListener('input', group);
   }
+  function stamp() {
+    var map = brands();
+    var items = [];
+    document.querySelectorAll('.chart-card').forEach(function (card) {
+      var name = ((card.querySelector('h3, .chart-name, strong') || {}).textContent || '').trim().toLowerCase();
+      var brand = map[name];
+      if (brand && card.dataset.code) items.push({ brand: brand, code: card.dataset.code });
+    });
+    if (!items.length) return;
+    fetch('https://findmysize.onrender.com/api/charts/brand-stamp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (localStorage.getItem('fms-admin') || '') },
+      body: JSON.stringify({ items: items }),
+    }).catch(function () {});
+  }
   setTimeout(group, 600);
-  setTimeout(group, 1500);
+  setTimeout(function () { group(); stamp(); }, 1500);
 });
 
   document.addEventListener('click', function (e) {
