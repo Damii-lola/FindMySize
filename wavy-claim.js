@@ -2,6 +2,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   const params = new URLSearchParams(location.search);
   let email = params.get('email') || '';
   let reference = params.get('reference') || params.get('tx_ref') || params.get('merchant_reference') || '';
+
+  // Wavy keeps our page inside its own URL. Read the email from the parent if we can.
+  try {
+    const parentParams = new URLSearchParams(window.top.location.search);
+    if (!email) email = parentParams.get('email') || '';
+  } catch (e) {}
   try {
     const stored = JSON.parse(sessionStorage.getItem('fms-pay') || 'null');
     if (stored) {
@@ -9,7 +15,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (!reference) reference = stored.reference || '';
     }
   } catch (e) {}
-  if (!params.get('paid') && !reference) return;
 
   const box = document.querySelector('main') || document.querySelector('h1') || document.body;
   const status = document.createElement('p');
@@ -17,10 +22,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   status.textContent = 'Confirming your payment…';
   if (box && box.parentNode) box.parentNode.insertBefore(status, box);
 
-  if (!email.includes('@') || !reference) {
-    status.textContent = 'Payment received. Log in with the email you paid with.';
+  if (!email.includes('@')) {
+    status.textContent = 'Payment received. Enter the email you paid with, then log in.';
     return;
   }
+
   try {
     const res = await fetch('https://findmysize.onrender.com/api/pay/wavy-claim', {
       method: 'POST',
@@ -30,9 +36,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const data = await res.json();
     if (!res.ok || !data.paid) throw new Error(data.error || 'Could not confirm payment');
     try { sessionStorage.removeItem('fms-pay'); } catch (e) {}
-    status.textContent = 'Payment confirmed. Log in with ' + email + ' and the code from your email.';
-    const emailInput = document.querySelector('input[type="email"]');
-    if (emailInput && !emailInput.value) emailInput.value = email;
+    status.textContent = 'Payment confirmed. Opening login…';
+    const next = 'https://damii-lola.github.io/FindMySize/auth/?paid=1&email=' + encodeURIComponent(email);
+    try { window.top.location.href = next; } catch (e) { location.href = next; }
   } catch (err) {
     status.textContent = err.message || 'Payment not confirmed yet. Refresh in a minute.';
   }
