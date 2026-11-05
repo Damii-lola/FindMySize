@@ -36,9 +36,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const data = await res.json();
     if (!res.ok || !data.paid) throw new Error(data.error || 'Could not confirm payment');
     try { sessionStorage.removeItem('fms-pay'); } catch (e) {}
-    status.textContent = 'Payment confirmed. Opening login…';
-    const next = 'https://damii-lola.github.io/FindMySize/auth/?paid=1&email=' + encodeURIComponent(email);
-    try { window.top.location.href = next; } catch (e) { location.href = next; }
+    status.innerHTML = 'Payment confirmed. Your activation code is <strong>' + (data.code || '') + '</strong>. Send it to FindMySize.';
+    var next = 'https://damii-lola.github.io/FindMySize/auth/?paid=1&email=' + encodeURIComponent(email) + '&code=' + encodeURIComponent(data.code || '');
+    setTimeout(function () { try { window.top.location.href = next; } catch (e) { location.href = next; } }, 8000);
   } catch (err) {
     status.textContent = err.message || 'Payment not confirmed yet. Refresh in a minute.';
   }
