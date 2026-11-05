@@ -215,7 +215,18 @@ payRoutes.post('/dev-claim', ah(async (req, res) => {
   res.json({ code: 'DEVCODE' });
 }));
 
-payRoutes.post('/brand-activate', ah(async (req, res) => {
+payRoutes.post('/brand-toggle', ah(async (req, res) => {
+  if (!adminFromReq(req)) throw new HttpError(401, 'Log in first');
+  const brand = String(req.body?.brand || '').trim();
+  const active = Boolean(req.body?.active);
+  if (!brand) throw new HttpError(400, 'Brand is required');
+  if (!supabaseConfigured()) return res.json({ ok: true, brand, active });
+  if (active) await db().from('brand_activations').upsert({ brand, code: 'manual', activated_at: new Date().toISOString() });
+  else await db().from('brand_activations').delete().eq('brand', brand);
+  res.json({ ok: true, brand, active });
+}));
+
+payRoutes.post('/brand-activate, ah(async (req, res) => {
   if (!adminFromReq(req)) throw new HttpError(401, 'Log in first');
   const code = String(req.body?.code || '').trim().toUpperCase();
   const brand = String(req.body?.brand || '').trim();
