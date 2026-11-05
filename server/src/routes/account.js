@@ -260,15 +260,33 @@ payRoutes.post('/subscription/renew', ah(async (req, res) => {
   res.json({ ok: true, renewsAt: renews });
 }));
 
-payRoutes.post('/brand-toggle', ah(async (req, res) => {
+chartRoutes.post('/brand-stamp', ah(async (req, res) => {
+  if (!adminFromReq(req)) throw new HttpError(401, 'Log in first');
+  const items = Array.isArray(req.body?.items) ? req.body.items : [];
+  if (supabaseConfigured()) {
+    for (const item of items) {
+      const brand = String(item.brand || '').trim();
+      const code = String(item.code || '').trim();
+      if (brand && code) await db().from('size_charts').update({ brand }).eq('code', code);
+    }
+  }
+  res.json({ ok: true });
+}));
+
+payRoutes.post('/brand-toggle, ah(async (req, res) => {
   const code = String(req.body?.code || '').trim();
   if (!adminFromReq(req) && code !== '15691569') throw new HttpError(401, 'Log in first');
   const brand = String(req.body?.brand || '').trim();
   const active = Boolean(req.body?.active);
   if (!brand) throw new HttpError(400, 'Brand is required');
   if (!supabaseConfigured()) return res.json({ ok: true, brand, active });
-  if (active) await db().from('brand_activations').upsert({ brand, code: 'manual', activated_at: new Date().toISOString() });
-  else await db().from('brand_activations').delete().eq('brand', brand);
+  const codes = Array.isArray(req.body?.codes) ? req.body.codes.map((c) => String(c)).filter(Boolean) : [];
+  if (active) {
+    await db().from('brand_activations').upsert({ brand, code: 'manual', activated_at: new Date().toISOString() });
+    if (codes.length) await db().from('size_charts').update({ brand }).in('code', codes);
+  } else {
+    await db().from('brand_activations').delete().eq('brand', brand);
+  }
   res.json({ ok: true, brand, active });
 }));
 
