@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import { Router } from 'express';
 import { db, supabaseConfigured } from '../lib/supabase.js';
 import { HttpError, ah } from '../lib/errors.js';
+import { config } from '../config.js';
 import { isActive, subscriptionOf, rememberDevSub } from '../lib/limits.js';
 
 const pending = new Map();
@@ -150,3 +151,49 @@ export function markDevInactive(email) {
 export function makeActivationCode() {
   return crypto.randomBytes(4).toString('hex').toUpperCase();
 }
+
+function adminToken(username) {
+  const exp = Date.now() + 30 * 24 * 60 * 60 * 1000;
+  const body = Buffer.from(JSON.stringify({ u: username, exp })).toString('base64url');
+  const sig = crypto.createHmac('sha256', config.adminTokenSecret).update(body).digest('base64url');
+  return `${body}.${sig}`;
+}
+
+export function adminFromReq(req) {
+  const header = String(req.get('authorization') || '');
+  const token = header.startsWith('Bearer ') ? header.slice(7) : '';
+  if (!token || !token.includes('.')) return null;
+  const [body, sig] = token.split('.');
+  const expected = crypto.createHmac('sha256', config.adminTokenSecret).update(body).digest('base64url');
+  if (!timingSafe(sig, expected)) return null;
+  try {
+    const data = JSON.parse(Buffer.from(body, 'base64url').toString());
+    if (!data?.u || !data?.exp || data.exp < Date.now()) return null;
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+function timingSafe(a, b) {
+  const x = Buffer.from(String(a));
+  const y = Buffer.from(String(b));
+  if (x.length !== y.length) return false;
+  return crypto.timingSafeEqual(x, y);
+}
+
+authRoutes.post('/admin-login', ah(async (req, res) => {
+  const username = String(req.body?.username || '').trim();
+  const password = String(req.body?.password || '');
+  if (!config.adminUser || !config.adminPassword) throw new HttpError(503, 'Admin login is not configured');
+  if (username !== config.adminUser || password !== config.adminPassword) {
+    throw new HttpError(401, 'Wrong username or password');
+  }
+  res.json({ ok: true, token: adminToken(username), username });
+}));
+
+authRoutes.get('/admin-me', ah(async (req, res) => {
+  const admin = adminFromReq(req);
+  if (!admin) throw new HttpError(401, 'Not logged in');
+  res.json({ ok: true, username: admin.u });
+}));
