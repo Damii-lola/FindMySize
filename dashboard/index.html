@@ -237,7 +237,7 @@
           </p>
         </div>
 
-        <div class="notice free-tier" id="free-tier" role="note">
+        <div class="notice free-tier" id="free-tier" role="note" hidden>
           <h3>Free on this device</h3>
           <p>
             Without an account you can save <strong>one size chart</strong> here.
@@ -266,6 +266,11 @@
           </p>
 
           <div class="field-grid">
+            <label class="field field--wide">
+              <span class="field-label">Brand</span>
+              <input id="chart-brand" type="text" maxlength="60" list="brand-list" placeholder="Type a brand or pick one" />
+              <datalist id="brand-list"></datalist>
+            </label>
             <label class="field field--wide">
               <span class="field-label">Garment</span>
               <input id="chart-name" type="text" maxlength="60" placeholder="Oxford Shirt" />
