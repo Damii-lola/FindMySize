@@ -10,20 +10,20 @@
     <meta name="referrer" content="strict-origin-when-cross-origin" />
     <meta name="theme-color" content="#f5e9d6" />
     <title>FindMySize — Find your size</title>
-    <link rel="icon" href="/FindMySize/favicon.svg" type="image/svg+xml" />
-    <link rel="icon" href="/FindMySize/favicon.ico" sizes="32x32" />
-    <link rel="apple-touch-icon" href="/FindMySize/apple-touch-icon.png" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <!-- Before anything paints: the store popup (?embed=1) must never flash the page's own chrome. -->
-    <script src="/FindMySize/embed-flag.js"></script>
+    <script src="/embed-flag.js"></script>
     <!-- The page around the scanner. Every rule in it is under html:not(.embed). -->
-    <script src="/FindMySize/theme-init.js"></script>
-    <script type="module" crossorigin src="/FindMySize/assets/size-CHDawR0F.js"></script>
-    <link rel="modulepreload" crossorigin href="/FindMySize/assets/modulepreload-polyfill-B5Qt9EMX.js">
-    <link rel="modulepreload" crossorigin href="/FindMySize/assets/api-CD19Ed_l.js">
-    <link rel="modulepreload" crossorigin href="/FindMySize/assets/nav-Cthv8JGx.js">
-    <link rel="modulepreload" crossorigin href="/FindMySize/assets/free-tier-PrACVnm6.js">
-    <link rel="modulepreload" crossorigin href="/FindMySize/assets/popup-config-pcfu7MeG.js">
-    <link rel="stylesheet" crossorigin href="/FindMySize/assets/size-DS-nIEbg.css">
+    <script src="/theme-init.js"></script>
+    <script type="module" crossorigin src="/assets/size-DLxK-i-o.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/modulepreload-polyfill-B5Qt9EMX.js">
+    <link rel="modulepreload" crossorigin href="/assets/api-DpyLzM6x.js">
+    <link rel="modulepreload" crossorigin href="/assets/nav-BoJOF-HZ.js">
+    <link rel="modulepreload" crossorigin href="/assets/free-tier-D_HKm1Qh.js">
+    <link rel="modulepreload" crossorigin href="/assets/popup-config-CewJnFfJ.js">
+    <link rel="stylesheet" crossorigin href="/assets/size-Cc9PJt25.css">
   </head>
   <body class="app">
     <!-- The sky. Three fields of stars, each on its own tile, each sliding one
@@ -40,13 +40,13 @@
          never leaves costs more than it gives. -->
     <header class="nav">
       <div class="nav-inner">
-        <a class="brand nav-brand" href="/FindMySize/" aria-label="FindMySize — home">
+        <a class="brand nav-brand" href="/" aria-label="FindMySize — home">
           <span class="brand-mark" aria-hidden="true"></span>
           <span class="brand-name">FindMy<b>Size</b></span>
         </a>
 
         <nav class="nav-links" id="nav-links" aria-label="Sections">
-          <a class="nav-link" href="/FindMySize/dashboard/">Dashboard</a>
+          <a class="nav-link" href="/dashboard/">Dashboard</a>
         </nav>
 
         <button class="nav-menu" id="nav-menu" type="button" aria-expanded="false" aria-controls="nav-links" aria-label="Sections">
@@ -64,8 +64,8 @@
 
         <div class="nav-account" id="nav-account" hidden>
           <p class="nav-account-note" id="nav-account-note"></p>
-          <a class="nav-account-item" id="nav-account-settings" href="/FindMySize/settings/" hidden>Settings</a>
-          <a class="nav-account-item" id="nav-account-in" href="/FindMySize/auth/">Log in or sign up</a>
+          <a class="nav-account-item" id="nav-account-settings" href="/settings/" hidden>Settings</a>
+          <a class="nav-account-item" id="nav-account-in" href="/auth/">Log in or sign up</a>
           <button class="nav-account-item nav-account-out" id="nav-account-out" type="button" hidden>Log out</button>
         </div>
       </div>
@@ -80,6 +80,15 @@
           &mdash; that gap is how we tell your arms from your torso. Max 30 seconds.
         </p>
       </header>
+
+      <aside class="free-tier" id="free-tier" role="note">
+        <p class="free-tier-kicker">Free on this device</p>
+        <p class="free-tier-body">
+          Without an account you have <strong><span id="free-scans">3</span> scans left</strong> on this device.
+          These limits reset per device — a new phone or browser starts fresh.
+          Register to get unlimited scans, unlimited size charts, and unlimited popup uses.
+        </p>
+      </aside>
 
       <!-- The garment from the store's link, when there is one. Said on the
            first screen, because a shopper who followed a product link should be
@@ -317,14 +326,15 @@
     <footer class="page-foot page-only">
       <div class="page-wrap">
         <div class="page-foot-top">
-          <a class="foot-brand" href="/FindMySize/" aria-label="FindMySize — home">
+          <a class="foot-brand" href="/" aria-label="FindMySize — home">
             <span class="foot-mark" aria-hidden="true"></span>
             <span>FindMy<b>Size</b></span>
           </a>
           <nav aria-label="Footer">
-            <a href="/FindMySize/">Home</a>
-            <a href="/FindMySize/size/">Sizing</a>
-            <a href="/FindMySize/dashboard/">Dashboard</a>
+            <a href="/">Home</a>
+            <a href="/size/">Sizing</a>
+            <a href="/dashboard/">Dashboard</a>
+            <a href="/pricing/">Pricing</a>
           </nav>
         </div>
         <hr />
@@ -339,7 +349,7 @@
     <!-- The door first: /size is for someone with an account, and the scanner
          itself is heavy (a pose model, three.js, the lab), so src/size.js
          settles the account question and only then pulls the app in. -->
-  <script src="/FindMySize/chat.js" defer></script>
+  <script src="/chat.js" defer></script>
 </body>
 </html>
 

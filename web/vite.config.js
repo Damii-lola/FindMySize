@@ -23,7 +23,6 @@ export default defineConfig({
         register: page('register/index.html'),
         registered: page('registered/index.html'),
         shop: page('shop/index.html'),
-        pricing: page('pricing/index.html'),
         privacy: page('privacy/index.html'),
         terms: page('terms/index.html'),
       },
