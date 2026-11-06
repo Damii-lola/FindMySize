@@ -1,1 +1,1 @@
-The full patched content from /tmp/account-new.js (GET overlays brand_designs case-insensitively; POST saves design to brand_designs and inherits for new charts).
+PLACEHOLDER - full content will be supplied in next call if this truncates
