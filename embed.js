@@ -73,7 +73,7 @@
     '.threeDG-button svg{width:1.05rem;height:1.05rem;flex:0 0 auto}',
     '@keyframes threeDG-fade{from{opacity:0}to{opacity:1}}',
     '@keyframes threeDG-rise{from{opacity:0;transform:translateY(.8rem) scale(.985)}to{opacity:1;transform:none}}',
-    '@media (max-width:520px){.threeDG-overlay{padding:0}.threeDG-panel{width:100%;height:100%;border:0;border-radius:0}}',
+    '@media (max-width:520px){.threeDG-overlay{padding:.6rem}.threeDG-panel{width:100%;height:92%;border-radius:1.25rem}}',
     '@media (prefers-reduced-motion:reduce){.threeDG-overlay,.threeDG-panel{animation:none}}',
     '.threeDG-float{position:fixed;right:1.1rem;bottom:1.1rem;z-index:2147482000}',
     '.threeDG-float.threeDG-left{left:1.1rem;right:auto}',
