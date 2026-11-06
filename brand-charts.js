@@ -34,6 +34,30 @@ document.addEventListener('DOMContentLoaded', function () {
   function brands() { try { return JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) { return {}; } }
   function activations() { try { return JSON.parse(localStorage.getItem('fms-brand-active') || '{}'); } catch (e) { return {}; } }
   function designs() { try { return JSON.parse(localStorage.getItem('fms-brand-popup') || '{}'); } catch (e) { return {}; } }
+
+  var sb = null;
+  function supabase() {
+    if (sb) return Promise.resolve(sb);
+    return new Promise(function (resolve) {
+      var s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js';
+      s.onload = function () {
+        fetch('https://findmysize.onrender.com/api/public-config').then(function (r) { return r.json(); }).then(function (cfg) {
+          sb = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
+          resolve(sb);
+        });
+      };
+      document.head.appendChild(s);
+    });
+  }
+  function saveBrandDesign(brand, popup, codes) {
+    saveDesign(brand, popup);
+    supabase().then(function (client) {
+      codes.forEach(function (code) {
+        client.from('size_charts').update({ popup: popup }).eq('code', code).then(function () {});
+      });
+    });
+  }
   function saveDesign(brand, popup) {
     var map = designs();
     map[brand.toLowerCase()] = popup;
@@ -95,7 +119,7 @@ document.addEventListener('DOMContentLoaded', function () {
         opts.body = JSON.stringify(body);
         var designBrand = window.__fmsBrand || brand;
         if (designBrand && body.popup) {
-          saveDesign(designBrand, body.popup);
+          saveBrandDesign(designBrand, body.popup, (function () { return Array.from(document.querySelectorAll('.brand-group')).filter(function (g) { return ((g.querySelector('.brand-name') || {}).textContent || '') === designBrand; }).flatMap(function (g) { return Array.from(g.querySelectorAll('.chart-card')).map(function (c) { return c.dataset.code; }); }); })());
           var codes = Array.from(document.querySelectorAll('.brand-group')).filter(function (g) {
             return ((g.querySelector('.brand-name') || {}).textContent || '') === designBrand;
           }).flatMap(function (g) {
