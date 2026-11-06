@@ -80,7 +80,9 @@ document.addEventListener('DOMContentLoaded', function () {
       var btn = document.createElement('button');
       btn.type = 'button';
       btn.textContent = b;
-      btn.style.cssText = 'display:block;width:100%;text-align:left;padding:8px 12px;border:0;background:#fff;font:inherit;cursor:pointer';
+      btn.style.cssText = 'display:block;width:100%;text-align:left;padding:10px 14px;border:0;background:transparent;font:inherit;font-weight:550;cursor:pointer;border-radius:10px;color:#221a15;transition:background .12s';
+      btn.onmouseenter = function(){ this.style.background = '#f5efe6'; };
+      btn.onmouseleave = function(){ this.style.background = 'transparent'; };
       btn.addEventListener('mousedown', function (e) {
         e.preventDefault();
         brandInput.value = b;
@@ -94,7 +96,7 @@ document.addEventListener('DOMContentLoaded', function () {
     var box = document.createElement('div');
     box.id = 'brand-suggest';
     box.hidden = true;
-    box.style.cssText = 'position:absolute;z-index:20;background:#fff;border:1px solid rgba(34,26,21,.16);border-radius:12px;margin-top:4px;max-height:180px;overflow:auto;width:100%';
+    box.style.cssText = 'position:absolute;z-index:40;background:#fff;border:1px solid rgba(34,26,21,.12);border-radius:16px;margin-top:6px;max-height:220px;overflow:auto;width:100%;box-shadow:0 12px 40px -16px rgba(34,26,21,.35);padding:6px';
     brandInput.parentElement.style.position = 'relative';
     brandInput.parentElement.appendChild(box);
     brandInput.addEventListener('focus', fillList);
