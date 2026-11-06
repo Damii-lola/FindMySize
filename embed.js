@@ -25,6 +25,7 @@
  * data-label  the button text. Default "Find my size".
  * data-name   the garment's name, for the button's title. Optional.
  * data-base   the site root, if this script is served from somewhere else.
+ *             Example: data-base="https://findmysize.onrender.com/"
  * data-float  "1" pins the button to the bottom-right corner instead of
  *             placing it in the page where the tag is.
  *
@@ -139,7 +140,15 @@
     close();
     ensureStyles();
 
+    // FIX: prefer an explicit data-base. If none is given, fall back to the
+    // Render origin where the scanner actually lives, instead of deriving it
+    // from the script's src (which breaks when the script is served from
+    // GitHub Pages but the scanner is on Render).
     var base = (opts && opts.base) || siteRoot();
+    if (/github\.io/.test(base) && !opts.base) {
+      base = 'https://findmysize.onrender.com/';
+    }
+
     opener = document.activeElement;
 
     overlay = document.createElement('div');
