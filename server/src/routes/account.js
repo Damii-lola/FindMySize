@@ -47,11 +47,6 @@ async function issueCode(email) {
     await db().from('subscriptions').upsert({
       code, email, paid_at: new Date().toISOString(), renews_at: renews, auto_renew: true, active: true,
     });
-    const manage = 'https://damii-lola.github.io/FindMySize/manage/?code=' + encodeURIComponent(code);
-    await db().auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: manage, shouldCreateUser: true },
-    }).catch((err) => console.warn('[pay] email failed', err.message));
   }
   return code;
 }
