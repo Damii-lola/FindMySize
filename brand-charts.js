@@ -363,6 +363,26 @@ document.addEventListener('DOMContentLoaded', function () {
         group();
       }).catch(function () {});
   }
+
+  function uploadLocal() {
+    var token = localStorage.getItem('fms-admin');
+    if (!token) return;
+    var local = [];
+    try { local = JSON.parse(localStorage.getItem('fms_charts_local') || '[]'); } catch (e) {}
+    local.forEach(function (chart) {
+      if (!chart || !chart.code || !chart.name) return;
+      fetch('https://findmysize.onrender.com/api/charts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({
+          code: chart.code, name: chart.name, sex: chart.sex, unit: chart.unit,
+          columns: chart.columns, rows: chart.rows, popup: chart.popup, brand: chart.brand,
+        }),
+      }).catch(function () {});
+    });
+  }
+  uploadLocal();
+
   loadAccount();
 
   setTimeout(group, 600);
