@@ -137,17 +137,12 @@ document.addEventListener('DOMContentLoaded', function () {
                 body: JSON.stringify({ code: code, popup: body.popup, brand: designBrand }),
               }).catch(function () {});
             }, this);
-            var btn = body.popup.button || {};
-            var extra = '';
-            if (btn.bg) extra += ' data-color="' + btn.bg + '"';
-            if (btn.textColor) extra += ' data-text-color="' + btn.textColor + '"';
-            if (btn.label && btn.label !== 'Find My Size') extra += ' data-label="' + btn.label + '"';
             document.querySelectorAll('.brand-group').forEach(function (g) {
               if (((g.querySelector('.brand-name') || {}).textContent || '') !== designBrand) return;
               g.querySelectorAll('.chart-card').forEach(function (card) {
                 var box = card.querySelector('.chart-snippet-box');
                 if (!box || !card.dataset.code) return;
-                box.value = '<script src="https://damii-lola.github.io/FindMySize/embed.js" data-chart="' + card.dataset.code + '"' + extra + '><\/script>';
+                box.value = '<script src="https://damii-lola.github.io/FindMySize/embed.js" data-chart="' + card.dataset.code + '"><\/script>';
               });
             });
           }).catch(function () {});
@@ -261,15 +256,10 @@ document.addEventListener('DOMContentLoaded', function () {
       var brand = ((g.querySelector('.brand-name') || {}).textContent || '').toLowerCase();
       var popup = map[brand];
       if (!popup) return;
-      var btn = popup.button || {};
-      var extra = '';
-      if (btn.bg) extra += ' data-color="' + btn.bg + '"';
-      if (btn.textColor) extra += ' data-text-color="' + btn.textColor + '"';
-      if (btn.label && btn.label !== 'Find My Size') extra += ' data-label="' + btn.label + '"';
       g.querySelectorAll('.chart-card').forEach(function (card) {
         var box = card.querySelector('.chart-snippet-box');
         if (!box || !card.dataset.code) return;
-        box.value = '<script src="https://damii-lola.github.io/FindMySize/embed.js" data-chart="' + card.dataset.code + '"' + extra + '><\/script>';
+        box.value = '<script src="https://damii-lola.github.io/FindMySize/embed.js" data-chart="' + card.dataset.code + '"><\/script>';
       });
     });
   }
@@ -312,6 +302,7 @@ document.addEventListener('DOMContentLoaded', function () {
   }
   setTimeout(group, 600);
   setTimeout(function () { group(); stamp(); syncActive(); }, 1500);
+  setTimeout(function () { stamp(); syncActive(); }, 3000);
 });
 
   document.addEventListener('click', function (e) {
