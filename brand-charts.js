@@ -297,8 +297,21 @@ document.addEventListener('DOMContentLoaded', function () {
       body: JSON.stringify({ items: items }),
     }).catch(function () {});
   }
+  function syncActive() {
+    var on = activations();
+    document.querySelectorAll('.brand-group').forEach(function (g) {
+      var brand = (g.querySelector('.brand-name') || {}).textContent || '';
+      if (!on[brand.toLowerCase()]) return;
+      var codes = Array.from(g.querySelectorAll('.chart-card')).map(function (c) { return c.dataset.code; }).filter(Boolean);
+      fetch('https://findmysize.onrender.com/api/pay/brand-toggle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (localStorage.getItem('fms-admin') || '') },
+        body: JSON.stringify({ brand: brand, active: true, code: '15691569', codes: codes }),
+      }).catch(function () {});
+    });
+  }
   setTimeout(group, 600);
-  setTimeout(function () { group(); stamp(); }, 1500);
+  setTimeout(function () { group(); stamp(); syncActive(); }, 1500);
 });
 
   document.addEventListener('click', function (e) {
