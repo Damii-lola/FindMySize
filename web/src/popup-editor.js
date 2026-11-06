@@ -236,7 +236,6 @@ export function openPopupEditor({ chart, siteUrl, onSave, toast }) {
         else { c.button.float = true; c.button.side = v; }
       }, [['right', 'Bottom right'], ['left', 'Bottom left'], ['inline', 'In the page']], 'Position'),
       'Bottom corners float above the page; "In the page" puts it where you paste the code.'),
-      toggle(() => cfg.button.shadow, (c, v) => { c.button.shadow = v; }, 'Soft shadow', 'A light drop shadow under the floating button.'),
     ];
   }
 
@@ -276,18 +275,20 @@ export function openPopupEditor({ chart, siteUrl, onSave, toast }) {
 
     return [
       presets,
+      field('Background style', selectInput(() => cfg.theme.bgStyle, (c, v) => { c.theme.bgStyle = v; }, [['solid','Solid'],['gradient','Gradient'],['mesh','Mesh']])),
       field('Background', colourInput(() => cfg.theme.background, (c, v) => { c.theme.background = v; }, { label: 'Background' })),
+      field('Background 2', colourInput(() => cfg.theme.background2, (c, v) => { c.theme.background2 = v; }, { label: 'Background 2' }), 'Used by gradient and mesh backgrounds.'),
       field('Text', colourInput(() => cfg.theme.text, (c, v) => { c.theme.text = v; }, { label: 'Text' })),
       contrastNote,
       field('Accent', colourInput(() => cfg.theme.accent, (c, v) => {
         c.theme.accent = v;
         c.button.bg = v;
         c.button.textColor = readableOn(v);
-      }, { label: 'Accent' }), 'Icons, rules and highlights inside the popup. The button uses this colour too.'),
+      }, { label: 'Accent' }), 'Icons, rules and highlights. The button uses this colour too.'),
+      field('Accent 2', colourInput(() => cfg.theme.accent2, (c, v) => { c.theme.accent2 = v; }, { label: 'Accent 2' }), 'Secondary accent for gradients and highlights.'),
       field('Typeface', selectInput(() => cfg.theme.font, (c, v) => { c.theme.font = v; }, Object.entries(FONTS).map(([key, f]) => [key, f.label]))),
       field('Corners', rangeInput(() => cfg.theme.radius, (c, v) => { c.theme.radius = v; }, { min: 0, max: 40, step: 1, format: pixels })),
       field('Text size', rangeInput(() => cfg.theme.scale, (c, v) => { c.theme.scale = v; }, { min: 0.85, max: 1.25, step: 0.05, format: percent })),
-      field('Spacing', rangeInput(() => cfg.theme.spacing, (c, v) => { c.theme.spacing = v; }, { min: 0.8, max: 1.3, step: 0.05, format: percent }), 'How much room the popup gives itself.'),
     ];
   }
 
