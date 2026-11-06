@@ -47,6 +47,8 @@ const statsEl = document.getElementById('dash-stats');
 const statBrands = document.getElementById('stat-brands');
 const statGarments = document.getElementById('stat-garments');
 const statPopups = document.getElementById('stat-popups');
+const statPopupToggle = document.getElementById('stat-popup-toggle');
+let showingPopupUses = false;
 const searchInput = document.getElementById('chart-search');
 const sortSelect = document.getElementById('chart-sort');
 const toastEl = document.getElementById('dash-toast');
@@ -658,14 +660,29 @@ function updateStats(charts) {
   // Brand groups = distinct brands across charts
   const brands = new Set();
   let popups = 0;
+  let latest = null;
   for (const c of charts) {
     if (c.brand) brands.add(c.brand);
     popups += Number(c.popup_uses || 0);
+    const t = c.updated_at || c.created_at;
+    if (t && (!latest || String(t) > String(latest))) latest = t;
   }
   statBrands.textContent = brands.size;
   statGarments.textContent = charts.length;
-  statPopups.textContent = popups;
+  if (showingPopupUses) {
+    statPopups.textContent = popups;
+    statPopupToggle.querySelector('.stat-label').textContent = 'Popup uses';
+  } else {
+    statPopups.textContent = latest ? new Date(latest).toLocaleDateString() : '&mdash;';
+    statPopupToggle.querySelector('.stat-label').textContent = 'Last saved';
+  }
 }
+
+statPopupToggle.addEventListener('click', () => {
+  showingPopupUses = !showingPopupUses;
+  const charts = shown; // currently rendered charts
+  updateStats(charts);
+});
 
 async function refresh() {
   try {
