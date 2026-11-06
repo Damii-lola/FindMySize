@@ -68,9 +68,9 @@ export const DEFAULTS = Object.freeze({
     float: true,
   }),
   record: Object.freeze({
-    headline: 'Record one slow turn',
+    headline: 'Record a 360\u00b0 turn',
     instruction:
-      'Turn all the way around, slowly. Stand still, whole body in frame, arms a hand\u2019s width from your sides \u2014 that gap is how we tell your arms from your torso. Max 30 seconds.',
+      'Record or upload a video of yourself turning one full circle. The video lets us calculate your best clothing size.',
     recordLabel: 'Click to Record',
     recordHint: '360\u00b0 \u00b7 hold still \u00b7 max 30 seconds',
     promises: true,

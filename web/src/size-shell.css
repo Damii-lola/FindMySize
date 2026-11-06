@@ -202,6 +202,17 @@ html:not(.embed) body.app .stage {
 
 body.app .intro { gap: 14px; }
 
+/* "Sizing for ___" garment name — big and noticeable */
+body.app .garment {
+  font-family: var(--n-display, "Fraunces Variable", "Fraunces", Georgia, serif);
+  font-size: clamp(20px, 3vw, 28px);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--n-orange-text, #a9330a);
+  margin: 0 0 8px;
+  display: block;
+}
+
 body.app .intro h1 {
   font-family: var(--pu-display, var(--n-display, "Fraunces Variable", "Fraunces", Georgia, serif));
   font-size: clamp(30px, 5vw, 44px);
