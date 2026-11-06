@@ -63,7 +63,7 @@ document.addEventListener('DOMContentLoaded', function () {
     map[brand.toLowerCase()] = popup;
     localStorage.setItem('fms-brand-popup', JSON.stringify(map));
   }
-  function saveBrands(map) { localStorage.setItem(KEY, JSON.stringify(map)); }
+  function saveBrands(map) { localStorage.setItem(KEY, JSON.stringify(map)); syncToServer(); }
   function known() {
     var set = {};
     Object.values(brands()).forEach(function (b) { if (b) set[b] = true; });
@@ -323,6 +323,48 @@ document.addEventListener('DOMContentLoaded', function () {
       }).catch(function () {});
     });
   }
+
+  function syncToServer() {
+    var token = localStorage.getItem('fms-admin');
+    if (!token) return;
+    fetch('https://findmysize.onrender.com/api/pay/brands', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: JSON.stringify({ brands: brands(), activations: activations(), designs: designs() }),
+    }).catch(function () {});
+  }
+  function loadAccount() {
+    var token = localStorage.getItem('fms-admin');
+    if (!token) return;
+    fetch('https://findmysize.onrender.com/api/pay/brands', { headers: { Authorization: 'Bearer ' + token } })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) {
+        if (!data) return;
+        if (data.brands && Object.keys(data.brands).length) localStorage.setItem(KEY, JSON.stringify(data.brands));
+        if (data.activations && Object.keys(data.activations).length) localStorage.setItem('fms-brand-active', JSON.stringify(data.activations));
+        if (data.designs && Object.keys(data.designs).length) localStorage.setItem('fms-brand-popup', JSON.stringify(data.designs));
+        group();
+      }).catch(function () {});
+    fetch('https://findmysize.onrender.com/api/charts/all', { headers: { Authorization: 'Bearer ' + token } })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) {
+        if (!data || !data.charts || !data.charts.length || !list) return;
+        var have = {};
+        list.querySelectorAll('.chart-card').forEach(function (c) { have[c.dataset.code] = true; });
+        data.charts.forEach(function (chart, i) {
+          if (have[chart.code]) return;
+          var card = document.createElement('article');
+          card.className = 'chart-card';
+          card.dataset.code = chart.code;
+          card.innerHTML = '<div class="chart-card-top"><span class="chart-index">' + String(i + 1).padStart(2, '0') + '</span><header class="chart-card-head"><h3>' + chart.name + '</h3></header></div>'
+            + '<div class="chart-snippet"><textarea class="chart-snippet-box" readonly><script src="https://damii-lola.github.io/FindMySize/embed.js" data-chart="' + chart.code + '"><\\/script></textarea></div>';
+          list.appendChild(card);
+        });
+        group();
+      }).catch(function () {});
+  }
+  loadAccount();
+
   setTimeout(group, 600);
   setTimeout(function () { group(); stamp(); syncActive(); }, 1500);
   setTimeout(function () { stamp(); syncActive(); }, 3000);
