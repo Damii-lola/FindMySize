@@ -38,6 +38,16 @@ export const FONTS = {
     display: '"Helvetica Neue", Helvetica, Arial, sans-serif',
     body: '"Helvetica Neue", Helvetica, Arial, sans-serif',
   },
+  rounded: {
+    label: 'Rounded',
+    display: '"Nunito", "Quicksand", ui-rounded, system-ui, sans-serif',
+    body: '"Nunito", "Quicksand", ui-rounded, system-ui, sans-serif',
+  },
+  mono: {
+    label: 'Mono',
+    display: 'ui-monospace, "SF Mono", Menlo, Consolas, monospace',
+    body: 'ui-monospace, "SF Mono", Menlo, Consolas, monospace',
+  },
 };
 
 /**
@@ -54,6 +64,7 @@ export const DEFAULTS = Object.freeze({
     font: 'default',
     radius: 28,
     scale: 1,
+    spacing: 1,
   }),
   // The floating button on the store's page. Its default look is the one it has always had.
   button: Object.freeze({
@@ -63,6 +74,7 @@ export const DEFAULTS = Object.freeze({
     radius: 13,
     side: 'right',
     float: true,
+    shadow: true,
   }),
   record: Object.freeze({
     headline: 'Record one slow turn',
@@ -169,6 +181,7 @@ export function normalizePopup(raw) {
       font: Object.prototype.hasOwnProperty.call(FONTS, t.font) ? t.font : D.theme.font,
       radius: num(t.radius, LIMITS.radius, D.theme.radius),
       scale: num(t.scale, LIMITS.scale, D.theme.scale),
+      spacing: num(t.spacing, [0.8, 1.3], D.theme.spacing),
     },
     button: {
       label: text(b.label, 28, D.button.label),
@@ -177,6 +190,7 @@ export function normalizePopup(raw) {
       radius: num(b.radius, LIMITS.buttonRadius, D.button.radius),
       side: b.side === 'left' ? 'left' : 'right',
       float: b.float !== false,
+      shadow: b.shadow !== false,
     },
     record: {
       headline: text(r.headline, 60, D.record.headline),
