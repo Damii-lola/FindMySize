@@ -255,11 +255,12 @@ export async function removeChart(id, code) {
  */
 export async function chartByCode(code) {
   if (!code) return null;
-  // Retry once after a short delay — Render free tier can cold-start and fail the first request.
-  for (let attempt = 0; attempt < 2; attempt += 1) {
+  const delays = [0, 2000, 4000];
+  for (let i = 0; i < delays.length; i += 1) {
+    if (delays[i]) await new Promise((r) => setTimeout(r, delays[i]));
     try {
       const row = await api(`/api/charts/code/${encodeURIComponent(code)}`);
-      if (!row) return null;
+      if (!row) continue;
       return {
         code: typeof row.code === 'string' ? row.code : code,
         name: typeof row.name === 'string' ? row.name : '',
@@ -270,11 +271,7 @@ export async function chartByCode(code) {
         popup: row.popup && typeof row.popup === 'object' && !Array.isArray(row.popup) ? row.popup : {},
       };
     } catch (e) {
-      if (attempt === 0) {
-        await new Promise((r) => setTimeout(r, 1500));
-        continue;
-      }
-      return null;
+      console.warn('[charts] chartByCode attempt', i + 1, 'failed:', e.message);
     }
   }
   return null;
