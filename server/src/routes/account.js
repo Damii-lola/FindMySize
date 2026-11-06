@@ -516,22 +516,21 @@ chartRoutes.post('/', ah(async (req, res) => {
   const row = { id: crypto.randomUUID(), code, name, sex, unit, columns, rows, popup, brand, created_at: new Date().toISOString() };
 
   if (supabaseConfigured()) {
-    const userId = access.user && !String(access.user.id).startsWith('dev:') ? access.user.id : null;
+    // Always write the chart itself (same reliable path designs use).
+    // user_id is optional — don't let a NOT NULL constraint block the save.
     const payload = { code, name, sex, unit, columns, rows, popup, brand };
-    if (userId) payload.user_id = userId;
-    // Try insert; if the code already exists, update it.
-    let { data, error } = await db().from('size_charts').insert(payload).select('id, code, name, sex, unit, columns, rows, popup, created_at').single();
+    let { data, error } = await db().from('size_charts').insert(payload).select('id, code, name, sex, unit, columns, rows, popup, brand, created_at').single();
     if (error && String(error.code) === '23505') {
-      ({ data, error } = await db().from('size_charts').update(payload).eq('code', code).select('id, code, name, sex, unit, columns, rows, popup, created_at').single());
+      ({ data, error } = await db().from('size_charts').update(payload).eq('code', code).select('id, code, name, sex, unit, columns, rows, popup, brand, created_at').single());
     }
-    // popup column may be missing on older databases
-    if (error && /brand|popup/i.test(error.message || '')) {
-      delete payload.popup;
-      ({ data, error } = await db().from('size_charts').insert(payload).select('id, code, name, sex, unit, columns, rows, created_at').single());
+    // If a column is missing, retry without the offending fields
+    if (error && /brand|popup|user_id/i.test(error.message || '')) {
+      const slim = { code, name, sex, unit, columns, rows };
+      ({ data, error } = await db().from('size_charts').insert(slim).select('id, code, name, sex, unit, columns, rows, created_at').single());
       if (error && String(error.code) === '23505') {
-        ({ data, error } = await db().from('size_charts').update(payload).eq('code', code).select('id, code, name, sex, unit, columns, rows, created_at').single());
+        ({ data, error } = await db().from('size_charts').update(slim).eq('code', code).select('id, code, name, sex, unit, columns, rows, created_at').single());
       }
-      if (data) data.popup = popup;
+      if (data) { data.popup = popup; data.brand = brand; }
     }
     if (!error && data && brand) {
       // Persist design on the brand itself (source of truth)
