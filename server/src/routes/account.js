@@ -273,7 +273,7 @@ chartRoutes.post('/brand-stamp', ah(async (req, res) => {
   res.json({ ok: true });
 }));
 
-payRoutes.post('/brand-toggle, ah(async (req, res) => {
+payRoutes.post('/brand-toggle', ah(async (req, res) => {
   const code = String(req.body?.code || '').trim();
   if (!adminFromReq(req) && code !== '15691569') throw new HttpError(401, 'Log in first');
   const brand = String(req.body?.brand || '').trim();
