@@ -38,16 +38,6 @@ export const FONTS = {
     display: '"Helvetica Neue", Helvetica, Arial, sans-serif',
     body: '"Helvetica Neue", Helvetica, Arial, sans-serif',
   },
-  rounded: {
-    label: 'Rounded',
-    display: '"Nunito", "Quicksand", ui-rounded, system-ui, sans-serif',
-    body: '"Nunito", "Quicksand", ui-rounded, system-ui, sans-serif',
-  },
-  mono: {
-    label: 'Mono',
-    display: 'ui-monospace, "SF Mono", Menlo, Consolas, monospace',
-    body: 'ui-monospace, "SF Mono", Menlo, Consolas, monospace',
-  },
 };
 
 /**
@@ -59,12 +49,14 @@ export const DEFAULTS = Object.freeze({
   v: POPUP_VERSION,
   theme: Object.freeze({
     background: '#221a15',
+    background2: '#2a211c',
     text: '#f5e9d6',
     accent: '#f0521f',
+    accent2: '#ff8a5c',
     font: 'default',
     radius: 28,
     scale: 1,
-    spacing: 1,
+    bgStyle: 'solid',
   }),
   // The floating button on the store's page. Its default look is the one it has always had.
   button: Object.freeze({
@@ -74,7 +66,6 @@ export const DEFAULTS = Object.freeze({
     radius: 13,
     side: 'right',
     float: true,
-    shadow: true,
   }),
   record: Object.freeze({
     headline: 'Record one slow turn',
@@ -176,12 +167,14 @@ export function normalizePopup(raw) {
     v: POPUP_VERSION,
     theme: {
       background: colour(t.background, D.theme.background),
+      background2: colour(t.background2, D.theme.background2),
       text: colour(t.text, D.theme.text),
       accent: colour(t.accent, D.theme.accent),
+      accent2: colour(t.accent2, D.theme.accent2),
       font: Object.prototype.hasOwnProperty.call(FONTS, t.font) ? t.font : D.theme.font,
       radius: num(t.radius, LIMITS.radius, D.theme.radius),
       scale: num(t.scale, LIMITS.scale, D.theme.scale),
-      spacing: num(t.spacing, [0.8, 1.3], D.theme.spacing),
+      bgStyle: ['solid','gradient','mesh'].includes(t.bgStyle) ? t.bgStyle : 'solid',
     },
     button: {
       label: text(b.label, 28, D.button.label),
@@ -190,7 +183,6 @@ export function normalizePopup(raw) {
       radius: num(b.radius, LIMITS.buttonRadius, D.button.radius),
       side: b.side === 'left' ? 'left' : 'right',
       float: b.float !== false,
-      shadow: b.shadow !== false,
     },
     record: {
       headline: text(r.headline, 60, D.record.headline),
@@ -248,10 +240,15 @@ export function popupCss(rawCfg) {
   const body = [];
   const root = [];
 
-  if (background !== D.background || ink !== D.text) {
+  const bg2 = cfg.theme.background2 || background;
+  const style = cfg.theme.bgStyle || 'solid';
+  let bgValue = background;
+  if (style === 'gradient') bgValue = `linear-gradient(145deg, ${background} 0%, ${bg2} 100%)`;
+  else if (style === 'mesh') bgValue = `radial-gradient(ellipse at 20% 10%, ${mix(background, bg2, 0.4)} 0%, transparent 50%), radial-gradient(ellipse at 80% 80%, ${mix(bg2, background, 0.3)} 0%, transparent 45%), ${background}`;
+  if (background !== D.background || ink !== D.text || style !== 'solid') {
     const rgb = toRgb(ink).join(' ');
     body.push(
-      `--pu-bg:${background}`, `--bg:${background}`,
+      `--pu-bg:${bgValue}`, `--bg:${bgValue}`,
       `--panel:${mix(background, ink, 0.08)}`,
       `--pu-text:${ink}`, `--text:${ink}`,
       `--pu-muted:${mix(ink, background, 0.32)}`, `--muted:${mix(ink, background, 0.38)}`,
