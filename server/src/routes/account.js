@@ -454,6 +454,11 @@ chartRoutes.post('/', ah(async (req, res) => {
   const access = { unlimited: true, user: null };
   const body = req.body || {};
   const name = String(body.name || '').trim().slice(0, 60);
+  if (!name && body.code && body.popup) {
+    const { error } = await db().from('size_charts').update({ popup: body.popup }).eq('code', String(body.code));
+    if (error) throw new HttpError(500, error.message);
+    return res.json({ ok: true, code: body.code });
+  }
   if (!name) throw new HttpError(400, 'Name the chart');
   const sex = ['male', 'female', 'unisex'].includes(body.sex) ? body.sex : 'unisex';
   const unit = body.unit === 'cm' ? 'cm' : 'in';
