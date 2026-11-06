@@ -440,11 +440,11 @@ chartRoutes.get('/code/:code', ah(async (req, res) => {
   if (!code) throw new HttpError(400, 'Missing chart code');
   if (supabaseConfigured()) {
     let { data, error } = await db().from('size_charts')
-      .select('code, name, sex, unit, columns, rows, popup, brand')
+      .select('code, name, sex, unit, columns, rows, popup, brand, user_id')
       .eq('code', code)
       .maybeSingle();
-    // popup column may not exist yet on older databases — retry without it
-    if (error && /brand|popup/i.test(error.message || '')) {
+    // popup/brand/user_id columns may not exist yet on older databases — retry without them
+    if (error && /brand|popup|user_id/i.test(error.message || '')) {
       ({ data, error } = await db().from('size_charts')
         .select('code, name, sex, unit, columns, rows')
         .eq('code', code)
@@ -461,7 +461,6 @@ chartRoutes.get('/code/:code', ah(async (req, res) => {
         active = Boolean(act.data);
       }
       data.active = active;
-      // Always overlay the brand's design if one exists (source of truth for customization)
       if (data.brand) {
         const brandKey = String(data.brand).trim();
         let design = await db().from('brand_designs').select('popup').eq('brand', brandKey).maybeSingle();
@@ -470,9 +469,12 @@ chartRoutes.get('/code/:code', ah(async (req, res) => {
         }
         if (design.data?.popup) data.popup = design.data.popup;
       }
+      // Do not expose user_id publicly.
+      if ('user_id' in data) delete data.user_id;
       return res.json(data);
     }
   }
+  // In-memory fallback (dev/ephemeral). Not a cross-device source of truth.
   for (const list of charts.values()) {
     const found = list.find((c) => c.code === code);
     if (found) return res.json(found);
@@ -482,22 +484,29 @@ chartRoutes.get('/code/:code', ah(async (req, res) => {
 
 chartRoutes.get('/', ah(async (req, res) => {
   const user = await userFromAuth(req);
-  if (!user) return res.json({ charts: charts.get(req.get('x-device-id')) || [] });
-  if (String(user.id).startsWith('dev:')) return res.json({ charts: charts.get(user.id) || [] });
-  if (!supabaseConfigured()) return res.json({ charts: charts.get(user.id) || [] });
-  const { data, error } = await db().from('size_charts').select('id, code, name, sex, unit, columns, rows, created_at').eq('user_id', user.id).order('created_at', { ascending: false });
-  if (error) throw new HttpError(500, error.message);
-  res.json({ charts: data || [] });
+  // Authenticated users: always read from Supabase by user_id so charts sync across devices.
+  if (user) {
+    if (String(user.id).startsWith('dev:')) return res.json({ charts: charts.get(user.id) || [] });
+    if (!supabaseConfigured()) return res.json({ charts: charts.get(user.id) || [] });
+    const { data, error } = await db().from('size_charts')
+      .select('id, code, name, sex, unit, columns, rows, popup, brand, created_at, updated_at')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
+    if (error) throw new HttpError(500, error.message);
+    return res.json({ charts: data || [] });
+  }
+  // Anonymous: do not return device-local charts as the primary account library.
+  // Charts must be tied to a signed-in user to sync across devices.
+  res.json({ charts: [] });
 }));
 
 chartRoutes.post('/', ah(async (req, res) => {
-  // Charts must be savable even without an admin session so public links work.
-  // Admin token is still preferred but not required.
   const isAdmin = adminFromReq(req);
-  const access = { unlimited: true, user: null };
+  const user = await userFromAuth(req);
   const body = req.body || {};
   const name = String(body.name || '').trim().slice(0, 60);
   if (!name && body.code && body.popup) {
+    if (!supabaseConfigured()) return res.json({ ok: true, code: body.code });
     const { error } = await db().from('size_charts').update({ popup: body.popup }).eq('code', String(body.code));
     if (error) throw new HttpError(500, error.message);
     return res.json({ ok: true, code: body.code });
@@ -508,40 +517,59 @@ chartRoutes.post('/', ah(async (req, res) => {
   const columns = Array.isArray(body.columns) ? body.columns.slice(0, 12) : [];
   const rows = Array.isArray(body.rows) ? body.rows.slice(0, 24) : [];
   const popup = body.popup && typeof body.popup === 'object' && !Array.isArray(body.popup) ? body.popup : {};
-  // Existing code means an update (used by logged-out edits). Otherwise mint one.
+  // Existing code means an update. Otherwise mint one.
   const code = String(body.code || '').trim() || crypto.randomBytes(6).toString('hex');
-  if (false) {
-    const gate = await consume(req, 'charts');
-    if (!gate.ok) throw new HttpError(402, gate.error);
-  }
   const brand = String(body.brand || '').trim().slice(0, 60);
   const row = { id: crypto.randomUUID(), code, name, sex, unit, columns, rows, popup, brand, created_at: new Date().toISOString() };
 
   if (supabaseConfigured()) {
-    // Always write the chart itself (same reliable path designs use).
-    // user_id is optional — don't let a NOT NULL constraint block the save.
     const payload = { code, name, sex, unit, columns, rows, popup, brand };
-    let { data, error } = await db().from('size_charts').insert(payload).select('id, code, name, sex, unit, columns, rows, popup, brand, created_at').single();
+    // Tie charts to the authenticated user so they sync across devices.
+    if (user && !String(user.id).startsWith('dev:')) payload.user_id = user.id;
+
+    // If updating by code and we have a user, prefer updating the user's own chart.
+    let data = null;
+    let error = null;
+    if (String(body.code || '').trim()) {
+      let q = db().from('size_charts').update(payload).eq('code', code);
+      if (user && !String(user.id).startsWith('dev:')) q = q.eq('user_id', user.id);
+      ({ data, error } = await q.select('id, code, name, sex, unit, columns, rows, popup, brand, user_id, created_at').maybeSingle());
+      if (!error && !data) {
+        // Fall back: update by code (admin/legacy) or insert.
+        ({ data, error } = await db().from('size_charts').update(payload).eq('code', code)
+          .select('id, code, name, sex, unit, columns, rows, popup, brand, user_id, created_at').maybeSingle());
+      }
+    }
+    if (!data && !error) {
+      ({ data, error } = await db().from('size_charts').insert(payload)
+        .select('id, code, name, sex, unit, columns, rows, popup, brand, user_id, created_at').single());
+    }
     if (error && String(error.code) === '23505') {
-      ({ data, error } = await db().from('size_charts').update(payload).eq('code', code).select('id, code, name, sex, unit, columns, rows, popup, brand, created_at').single());
+      ({ data, error } = await db().from('size_charts').update(payload).eq('code', code)
+        .select('id, code, name, sex, unit, columns, rows, popup, brand, user_id, created_at').single());
     }
     // If a column is missing, retry without the offending fields
     if (error && /brand|popup|user_id/i.test(error.message || '')) {
       const slim = { code, name, sex, unit, columns, rows };
-      ({ data, error } = await db().from('size_charts').insert(slim).select('id, code, name, sex, unit, columns, rows, created_at').single());
-      if (error && String(error.code) === '23505') {
-        ({ data, error } = await db().from('size_charts').update(slim).eq('code', code).select('id, code, name, sex, unit, columns, rows, created_at').single());
+      if (user && !String(user.id).startsWith('dev:') && !/user_id/i.test(error.message || '')) slim.user_id = user.id;
+      let retry;
+      if (String(body.code || '').trim()) {
+        retry = await db().from('size_charts').update(slim).eq('code', code)
+          .select('id, code, name, sex, unit, columns, rows, user_id, created_at').maybeSingle();
+        if (!retry.data) retry = await db().from('size_charts').insert(slim)
+          .select('id, code, name, sex, unit, columns, rows, user_id, created_at').single();
+      } else {
+        retry = await db().from('size_charts').insert(slim)
+          .select('id, code, name, sex, unit, columns, rows, user_id, created_at').single();
       }
+      ({ data, error } = retry);
       if (data) { data.popup = popup; data.brand = brand; }
     }
     if (!error && data && brand) {
-      // Persist design on the brand itself (source of truth)
       if (popup && Object.keys(popup).length) {
         await db().from('brand_designs').upsert({ brand, popup, updated_at: new Date().toISOString() }).then(() => {}).catch(() => {});
-        // Also stamp every chart of this brand so older rows stay in sync
         await db().from('size_charts').update({ popup }).eq('brand', brand).then(() => {}).catch(() => {});
       } else {
-        // New chart with no popup — inherit the brand's existing design
         const existing = await db().from('brand_designs').select('popup').eq('brand', brand).maybeSingle();
         if (existing.data?.popup) {
           await db().from('size_charts').update({ popup: existing.data.popup }).eq('code', code);
@@ -549,19 +577,11 @@ chartRoutes.post('/', ah(async (req, res) => {
         }
       }
     }
-    if (!error && data) {
-      // also keep an in-memory copy so a just-saved chart is readable immediately
-      const key = access.user?.id || req.get('x-device-id') || 'anon';
-      const list = charts.get(key) || [];
-      const i = list.findIndex((c) => c.code === code);
-      if (i >= 0) list[i] = data; else list.unshift(data);
-      charts.set(key, list);
-      return res.json(data);
-    }
-    // fall through to memory if the database rejected it (e.g. user_id still NOT NULL)
+    if (!error && data) return res.json(data);
+    // fall through to memory if the database rejected it
   }
 
-  const key = access.user?.id || req.get('x-device-id') || 'anon';
+  const key = user?.id || req.get('x-device-id') || 'anon';
   const list = charts.get(key) || [];
   const i = list.findIndex((c) => c.code === code);
   if (i >= 0) list[i] = { ...list[i], ...row };
@@ -573,8 +593,12 @@ chartRoutes.post('/', ah(async (req, res) => {
 chartRoutes.delete('/code/:code', ah(async (req, res) => {
   const code = String(req.params.code || '').trim();
   if (!code) throw new HttpError(400, 'Missing chart code');
+  const user = await userFromAuth(req);
   if (supabaseConfigured()) {
-    const { error } = await db().from('size_charts').delete().eq('code', code);
+    let q = db().from('size_charts').delete().eq('code', code);
+    // Authenticated non-admin users can only delete their own charts.
+    if (user && !String(user.id).startsWith('dev:') && !adminFromReq(req)) q = q.eq('user_id', user.id);
+    const { error } = await q;
     if (error) throw new HttpError(500, error.message);
   }
   for (const [key, list] of charts) {

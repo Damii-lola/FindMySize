@@ -256,12 +256,8 @@ document.addEventListener('DOMContentLoaded', function () {
             headers: { Authorization: 'Bearer ' + (localStorage.getItem('fms-admin') || '') },
           }).catch(function () {});
         }
-        // Also wipe them from local storage so they don't reappear as Ungrouped
-        try {
-          var local = JSON.parse(localStorage.getItem('fms_charts_local') || '[]');
-          local = local.filter(function (c) { return codes.indexOf(c.code) === -1; });
-          localStorage.setItem('fms_charts_local', JSON.stringify(local));
-        } catch (e) {}
+        // Charts are server-backed; do not persist device-local chart copies.
+        try { localStorage.removeItem('fms_charts_local'); } catch (e) {}
         var map = brands();
         Object.keys(map).forEach(function (name) { if (map[name] === brand) delete map[name]; });
         saveBrands(map);

@@ -43,6 +43,11 @@ function localSave(charts) {
   localStorage.setItem(LOCAL_KEY, JSON.stringify(charts));
 }
 
+/** Remove charts cached in this browser. Use on sign-in/sign-out to avoid cross-account leaks. */
+export function clearLocalCharts() {
+  try { localStorage.removeItem(LOCAL_KEY); } catch { /* ignore */ }
+}
+
 import { api } from './api.js';
 
 /**
@@ -89,7 +94,7 @@ export function notSetUp(error) {
   return /does not exist|schema cache|not find the (table|function)/i.test(String(error?.message || ''));
 }
 
-/** The charts this account owns, newest first. Signed out (or local mode) = none. */
+/** The charts this account owns, newest first. Signed in = server (syncs across devices). */
 export async function listCharts() {
   if (hasAdminToken()) {
     try {
@@ -97,21 +102,30 @@ export async function listCharts() {
       if (result && Array.isArray(result.charts)) return result.charts;
     } catch { /* fall through */ }
   }
-  if (!(await hasSession())) return localList();
-  const client = await supabaseClient();
-  if (!client) return localList();
-  let { data, error } = await client
-    .from('size_charts')
-    .select('id, code, name, sex, unit, columns, rows, popup, popup_uses, created_at, updated_at')
-    .order('created_at', { ascending: false });
-  if (error && /popup_uses/i.test(error.message || '')) {
-    ({ data, error } = await client
-      .from('size_charts')
-      .select('id, code, name, sex, unit, columns, rows, popup, created_at, updated_at')
-      .order('created_at', { ascending: false }));
+  if (await hasSession()) {
+    // Primary source of truth: server API (scoped by user_id). This keeps charts in sync across devices.
+    try {
+      const result = await api('/api/charts');
+      if (result && Array.isArray(result.charts)) return result.charts;
+    } catch { /* fall through to direct Supabase if available */ }
+    const client = await supabaseClient();
+    if (client) {
+      let { data, error } = await client
+        .from('size_charts')
+        .select('id, code, name, sex, unit, columns, rows, popup, popup_uses, created_at, updated_at')
+        .order('created_at', { ascending: false });
+      if (error && /popup_uses/i.test(error.message || '')) {
+        ({ data, error } = await client
+          .from('size_charts')
+          .select('id, code, name, sex, unit, columns, rows, popup, created_at, updated_at')
+          .order('created_at', { ascending: false }));
+      }
+      if (error) throw error;
+      return data || [];
+    }
   }
-  if (error) throw error;
-  return data || [];
+  // Signed out: do not show device-local charts as the user's library (prevents cross-device confusion).
+  return [];
 }
 
 /**
@@ -120,91 +134,36 @@ export async function listCharts() {
  * moment the row lands; a collision (essentially impossible, but a unique index
  * is a unique index) is answered by asking for another code once.
  */
-async function saveLocalAndServer({ id, name, sex, unit, columns, rows, popup }) {
-  const charts = localList();
-  const existing = id ? charts.find((c) => c.id === id) : null;
-  const row = {
-    id: id || crypto.randomUUID(),
-    code: existing?.code || newCode(),
-    name: name.trim().slice(0, 60),
-    sex, unit, columns, rows,
-    popup: popup || {},
-    created_at: existing?.created_at || new Date().toISOString(),
-  };
-  // Tell the server so the public link works even without an account.
-  try {
-    const saved = await api('/api/charts', { method: 'POST', body: { ...row, code: row.code } });
-    if (saved && saved.code) Object.assign(row, saved);
-  } catch { /* keep the local copy either way */ }
-  if (id) {
-    const i = charts.findIndex((c) => c.id === id);
-    if (i >= 0) charts[i] = { ...charts[i], ...row };
-    else charts.push(row);
-  } else {
-    charts.unshift(row);
-  }
-  localSave(charts);
-  return row;
-}
-
 export async function saveChart({ id, name, sex, unit, columns, rows, popup }) {
-  // Always try the server first so the chart lands in Supabase and public links work.
-  // Local is only the absolute last resort if the server is unreachable.
-  try {
-    const body = { name: name.trim().slice(0, 60), sex, unit, columns, rows, popup: popup || {} };
-    if (id) body.id = id;
+  const body = { name: name.trim().slice(0, 60), sex, unit, columns, rows, popup: popup || {} };
+  if (id) body.id = id;
+
+  // Signed-in users: save via server API so charts are tied to the user and sync across devices.
+  if (await hasSession()) {
     const saved = await api('/api/charts', { method: 'POST', body });
     if (saved && saved.code) {
-        // Keep a local copy for offline dashboard too
+      // Keep a local cache only as a convenience; never treat it as the source of truth.
+      try {
         const charts = localList();
-        const existing = charts.find((c) => c.code === saved.code || c.id === id);
-        const row = { ...body, ...saved, id: saved.id || id || crypto.randomUUID() };
+        const existing = charts.find((c) => c.code === saved.code || c.id === (saved.id || id));
+        const row = { ...body, ...saved };
         if (existing) {
-          const i = charts.indexOf(existing);
-          charts[i] = { ...existing, ...row };
+          charts[charts.indexOf(existing)] = { ...existing, ...row };
         } else {
           charts.unshift(row);
         }
         localSave(charts);
-        return saved;
-      }
-    } catch (e) {
-      console.warn('[charts] server save failed, falling back:', e.message);
+      } catch { /* ignore cache errors */ }
+      return saved;
     }
-  if (!(await hasSession())) {
-    return saveLocalAndServer({ id, name, sex, unit, columns, rows, popup });
+    throw new Error('Could not save the chart.');
   }
-  const client = await supabaseClient();
-  if (!client) {
-    return saveLocalAndServer({ id, name, sex, unit, columns, rows, popup });
-  }
-  const row = { name: name.trim().slice(0, 60), sex, unit, columns, rows, popup: popup || {} };
-  if (id) {
-    let { data, error } = await client.from('size_charts').update(row).eq('id', id).select().single();
-    if (error && /popup/i.test(error.message || '')) {
-      const without = { ...row };
-      delete without.popup;
-      ({ data, error } = await client.from('size_charts').update(without).eq('id', id).select().single());
-      if (data) data.popup = row.popup;
-    }
-    if (error) throw error;
-    // The public link reads the chart from the server. Push the full popup there
-    // too, so theme, record and results survive — not only the button.
-    if (data?.code) {
-      try { await api('/api/charts', { method: 'POST', body: { ...row, code: data.code } }); } catch { /* account copy is already saved */ }
-    }
-    return data;
-  }
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    const { data, error } = await client
-      .from('size_charts')
-      .insert({ ...row, code: newCode() })
-      .select()
-      .single();
-    if (!error) return data;
-    if (String(error.code) !== '23505') throw error;
-  }
-  throw new Error('could not find a free link code — please try again');
+
+  // Signed out: do not create device-local charts. Charts must belong to an account to sync.
+  // (Public embed reads charts by code from the server; saving requires sign-in.)
+  const err = new Error('Log in to save charts so they sync across your devices.');
+  err.status = 401;
+  throw err;
 }
 
 /**
