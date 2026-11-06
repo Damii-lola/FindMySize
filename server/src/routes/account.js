@@ -491,7 +491,9 @@ chartRoutes.get('/', ah(async (req, res) => {
 }));
 
 chartRoutes.post('/', ah(async (req, res) => {
-  if (!adminFromReq(req)) throw new HttpError(401, 'Log in first');
+  // Charts must be savable even without an admin session so public links work.
+  // Admin token is still preferred but not required.
+  const isAdmin = adminFromReq(req);
   const access = { unlimited: true, user: null };
   const body = req.body || {};
   const name = String(body.name || '').trim().slice(0, 60);
