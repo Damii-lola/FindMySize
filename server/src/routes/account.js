@@ -260,6 +260,41 @@ payRoutes.post('/subscription/renew', ah(async (req, res) => {
   res.json({ ok: true, renewsAt: renews });
 }));
 
+
+chartRoutes.get('/all', ah(async (req, res) => {
+  if (!adminFromReq(req)) throw new HttpError(401, 'Log in first');
+  if (!supabaseConfigured()) return res.json({ charts: [] });
+  const { data, error } = await db().from('size_charts')
+    .select('id, code, name, sex, unit, columns, rows, popup, brand, created_at')
+    .order('created_at', { ascending: false });
+  if (error) throw new HttpError(500, error.message);
+  res.json({ charts: data || [] });
+}));
+
+payRoutes.get('/brands', ah(async (req, res) => {
+  if (!adminFromReq(req)) throw new HttpError(401, 'Log in first');
+  if (!supabaseConfigured()) return res.json({ brands: {}, activations: {}, designs: {} });
+  const { data } = await db().from('brand_meta').select('brands, activations, designs').eq('key', 'admin').maybeSingle()
+    .then((r) => r).catch(() => ({ data: null }));
+  const row = data || {};
+  res.json({
+    brands: row.brands || {},
+    activations: row.activations || {},
+    designs: row.designs || {},
+  });
+}));
+
+payRoutes.post('/brands', ah(async (req, res) => {
+  if (!adminFromReq(req)) throw new HttpError(401, 'Log in first');
+  const brands = req.body?.brands || {};
+  const activations = req.body?.activations || {};
+  const designs = req.body?.designs || {};
+  if (supabaseConfigured()) {
+    await db().from('brand_meta').upsert({ key: 'admin', brands, activations, designs, updated_at: new Date().toISOString() });
+  }
+  res.json({ ok: true });
+}));
+
 chartRoutes.post('/brand-stamp', ah(async (req, res) => {
   if (!adminFromReq(req)) throw new HttpError(401, 'Log in first');
   const items = Array.isArray(req.body?.items) ? req.body.items : [];
