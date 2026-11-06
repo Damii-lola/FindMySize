@@ -105,8 +105,12 @@ app.get('/registered', (_req, res) => res.redirect(301, '/registered/'));
 app.get('/pay', (_req, res) => res.redirect(301, '/register/'));
 app.get('/paid', (_req, res) => res.redirect(301, '/registered/'));
 
+// Serve static assets both at root and at /FindMySize/ so the scanner page
+// (loaded via iframe with /FindMySize/ prefix) can find its JS/CSS files.
+app.use('/FindMySize', express.static(webRoot, { extensions: ['html'] }));
 app.use(express.static(webRoot, { extensions: ['html'] }));
 app.get('/', (_req, res) => res.sendFile(join(webRoot, 'index.html')));
+app.get('/FindMySize/', (_req, res) => res.sendFile(join(webRoot, 'index.html')));
 
 app.use((_req, _res, next) => next(new HttpError(404, 'Not found')));
 
