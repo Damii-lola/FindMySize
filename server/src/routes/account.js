@@ -283,9 +283,13 @@ payRoutes.post('/brand-toggle', ah(async (req, res) => {
   const codes = Array.isArray(req.body?.codes) ? req.body.codes.map((c) => String(c)).filter(Boolean) : [];
   if (active) {
     await db().from('brand_activations').upsert({ brand, code: 'manual', activated_at: new Date().toISOString() });
-    if (codes.length) await db().from('size_charts').update({ brand }).in('code', codes);
+    for (const chartCode of codes) {
+      await db().from('brand_activations').upsert({ brand: chartCode, code: brand, activated_at: new Date().toISOString() });
+      await db().from('size_charts').update({ brand }).eq('code', chartCode);
+    }
   } else {
     await db().from('brand_activations').delete().eq('brand', brand);
+    for (const chartCode of codes) await db().from('brand_activations').delete().eq('brand', chartCode);
   }
   res.json({ ok: true, brand, active });
 }));
@@ -420,7 +424,9 @@ chartRoutes.get('/code/:code', ah(async (req, res) => {
     if (error) throw new HttpError(500, error.message);
     if (data) {
       let active = false;
-      if (data.brand) {
+      const byCode = await db().from('brand_activations').select('brand').eq('brand', code).maybeSingle();
+      if (byCode.data) active = true;
+      if (!active && data.brand) {
         const act = await db().from('brand_activations').select('brand').ilike('brand', data.brand).maybeSingle();
         active = Boolean(act.data);
       }
