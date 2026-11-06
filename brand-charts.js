@@ -107,6 +107,12 @@ document.addEventListener('DOMContentLoaded', function () {
     opts = opts || {};
     var href = typeof url === 'string' ? url : (url && url.url) || '';
     var method = String(opts.method || 'GET').toUpperCase();
+    if (href.indexOf('findmysize.onrender.com/api/') !== -1 || href.indexOf('/api/') === 0) {
+      var token = localStorage.getItem('fms-admin');
+      if (token) {
+        opts.headers = Object.assign({}, opts.headers || {}, { Authorization: 'Bearer ' + token });
+      }
+    }
     if (href.indexOf('/api/charts') !== -1 && (method === 'POST' || method === 'PATCH') && opts.body) {
       try {
         var body = typeof opts.body === 'string' ? JSON.parse(opts.body) : opts.body;
