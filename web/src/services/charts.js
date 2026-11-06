@@ -35,6 +35,10 @@ async function hasSession() {
   } catch { return false; }
 }
 
+function hasAdminToken() {
+  try { return Boolean(localStorage.getItem('fms-admin')); } catch { return false; }
+}
+
 function localSave(charts) {
   localStorage.setItem(LOCAL_KEY, JSON.stringify(charts));
 }
@@ -87,6 +91,12 @@ export function notSetUp(error) {
 
 /** The charts this account owns, newest first. Signed out (or local mode) = none. */
 export async function listCharts() {
+  if (hasAdminToken()) {
+    try {
+      const result = await api('/api/charts/all');
+      if (result && Array.isArray(result.charts)) return result.charts;
+    } catch { /* fall through */ }
+  }
   if (!(await hasSession())) return localList();
   const client = await supabaseClient();
   if (!client) return localList();
@@ -138,6 +148,31 @@ async function saveLocalAndServer({ id, name, sex, unit, columns, rows, popup })
 }
 
 export async function saveChart({ id, name, sex, unit, columns, rows, popup }) {
+  // Prefer the server path whenever we have an admin token so the chart lands in Supabase
+  // and public links can read it. Local is only the absolute last resort.
+  if (hasAdminToken()) {
+    try {
+      const body = { name: name.trim().slice(0, 60), sex, unit, columns, rows, popup: popup || {} };
+      if (id) body.id = id;
+      const saved = await api('/api/charts', { method: 'POST', body });
+      if (saved && saved.code) {
+        // Keep a local copy for offline dashboard too
+        const charts = localList();
+        const existing = charts.find((c) => c.code === saved.code || c.id === id);
+        const row = { ...body, ...saved, id: saved.id || id || crypto.randomUUID() };
+        if (existing) {
+          const i = charts.indexOf(existing);
+          charts[i] = { ...existing, ...row };
+        } else {
+          charts.unshift(row);
+        }
+        localSave(charts);
+        return saved;
+      }
+    } catch (e) {
+      console.warn('[charts] server save failed, falling back:', e.message);
+    }
+  }
   if (!(await hasSession())) {
     return saveLocalAndServer({ id, name, sex, unit, columns, rows, popup });
   }
