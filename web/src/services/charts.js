@@ -255,19 +255,27 @@ export async function removeChart(id, code) {
  */
 export async function chartByCode(code) {
   if (!code) return null;
-  try {
-    const row = await api(`/api/charts/code/${encodeURIComponent(code)}`);
-    if (!row) return null;
-    return {
-      code: typeof row.code === 'string' ? row.code : code,
-      name: typeof row.name === 'string' ? row.name : '',
-      sex: row.sex === 'female' || row.sex === 'male' ? row.sex : 'unisex',
-      unit: row.unit === 'cm' ? 'cm' : 'in',
-      columns: Array.isArray(row.columns) ? row.columns : [],
-      rows: Array.isArray(row.rows) ? row.rows : [],
-      popup: row.popup && typeof row.popup === 'object' && !Array.isArray(row.popup) ? row.popup : {},
-    };
-  } catch {
-    return null;
+  // Retry once after a short delay — Render free tier can cold-start and fail the first request.
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const row = await api(`/api/charts/code/${encodeURIComponent(code)}`);
+      if (!row) return null;
+      return {
+        code: typeof row.code === 'string' ? row.code : code,
+        name: typeof row.name === 'string' ? row.name : '',
+        sex: row.sex === 'female' || row.sex === 'male' ? row.sex : 'unisex',
+        unit: row.unit === 'cm' ? 'cm' : 'in',
+        columns: Array.isArray(row.columns) ? row.columns : [],
+        rows: Array.isArray(row.rows) ? row.rows : [],
+        popup: row.popup && typeof row.popup === 'object' && !Array.isArray(row.popup) ? row.popup : {},
+      };
+    } catch (e) {
+      if (attempt === 0) {
+        await new Promise((r) => setTimeout(r, 1500));
+        continue;
+      }
+      return null;
+    }
   }
+  return null;
 }
