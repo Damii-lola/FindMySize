@@ -112,9 +112,27 @@
         if (!chart || !chart.active) {
           close();
           alert('This size finder is not active yet.');
+          return;
         }
+        var btn = chart.popup && chart.popup.button;
+        if (btn) applyDesign(btn);
       })
       .catch(function () {});
+  }
+
+  function applyDesign(btn) {
+    var button = document.querySelector('.threeDG-button');
+    if (!button || !btn) return;
+    if (btn.bg) {
+      button.style.setProperty('--threeDG-accent', btn.bg);
+      button.style.setProperty('--threeDG-shadow', shadowFor(btn.bg));
+    }
+    if (btn.textColor) button.style.setProperty('--threeDG-text', btn.textColor);
+    if (btn.radius != null) button.style.setProperty('--threeDG-radius', btn.radius + 'px');
+    if (btn.label) {
+      var label = button.querySelector('span');
+      if (label) label.textContent = btn.label;
+    }
   }
 
   function openNow(opts) {
