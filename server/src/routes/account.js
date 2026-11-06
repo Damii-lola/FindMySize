@@ -391,16 +391,13 @@ chartRoutes.post('/brand-sync', ah(async (req, res) => {
   const popup = req.body?.popup;
   if (!popup || typeof popup !== 'object') throw new HttpError(400, 'Popup design is required');
   if (!supabaseConfigured()) return res.json({ ok: true, updated: 0 });
-  if (brand) await db().from('brand_designs').upsert({ brand, popup, updated_at: new Date().toISOString() });
+  if (brand) await db().from('brand_designs').upsert({ brand, popup, updated_at: new Date().toISOString() }).then(() => {}).catch(() => {});
   let updated = 0;
-  if (codes.length) {
-    const { data, error } = await db().from('size_charts').update({ popup }).in('code', codes).select('code');
-    if (error) throw new HttpError(500, error.message);
-    updated = (data || []).length;
+  for (const code of codes) {
+    const { data, error } = await db().from('size_charts').update({ popup }).eq('code', code).select('code');
+    if (!error && data?.length) updated += data.length;
   }
-  if (brand) {
-    await db().from('size_charts').update({ popup, brand }).eq('brand', brand);
-  }
+  if (brand) await db().from('size_charts').update({ popup }).eq('brand', brand).then(() => {}).catch(() => {});
   res.json({ ok: true, updated });
 }));
 
