@@ -44,9 +44,9 @@ const listSection = document.getElementById('dash-list-section');
 const howSection = document.getElementById('dash-how');
 const listEl = document.getElementById('dash-list');
 const statsEl = document.getElementById('dash-stats');
+const statBrands = document.getElementById('stat-brands');
 const statGarments = document.getElementById('stat-garments');
-const statSizes = document.getElementById('stat-sizes');
-const statUpdated = document.getElementById('stat-updated');
+const statPopups = document.getElementById('stat-popups');
 const searchInput = document.getElementById('chart-search');
 const sortSelect = document.getElementById('chart-sort');
 const toastEl = document.getElementById('dash-toast');
@@ -655,13 +655,16 @@ function updateStats(charts) {
   if (!statsEl) return;
   if (!charts.length) { statsEl.hidden = true; return; }
   statsEl.hidden = false;
+  // Brand groups = distinct brands across charts
+  const brands = new Set();
+  let popups = 0;
+  for (const c of charts) {
+    if (c.brand) brands.add(c.brand);
+    popups += Number(c.popup_uses || 0);
+  }
+  statBrands.textContent = brands.size;
   statGarments.textContent = charts.length;
-  statSizes.textContent = charts.reduce((n, c) => n + Number(c.popup_uses || 0), 0);
-  const latest = charts.reduce((acc, c) => {
-    const t = c.updated_at || c.created_at;
-    return t && (!acc || String(t) > String(acc)) ? t : acc;
-  }, null);
-  statUpdated.textContent = latest ? new Date(latest).toLocaleDateString() : '—';
+  statPopups.textContent = popups;
 }
 
 async function refresh() {
