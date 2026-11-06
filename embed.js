@@ -105,7 +105,10 @@
   function open(opts) {
     var code = (opts && opts.code) || '';
     if (!code) return;
+    var known = ready[code];
     openNow(opts);
+    if (known && known.popup && known.popup.button) applyDesign(known.popup.button);
+    if (known && known.popup && known.popup.theme && panelEl) panelEl.style.background = known.popup.theme.background || '';
     fetch('https://findmysize.onrender.com/api/charts/code/' + encodeURIComponent(code))
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (chart) {
@@ -278,24 +281,32 @@
   // The tag may sit in the <head>, where document.body does not exist yet, so
   // the mount waits for the body rather than attaching to <html> and vanishing
   // into a place no stylesheet reaches.
+  var ready = {};
   function autoMount() {
     if (!script) return;
     var spec = script.dataset || {};
     var code = spec.chart || spec.code || '';
     if (!code) return;
-    mount(null, {
-      code: code,
-      name: spec.name || '',
-      label: spec.label || 'Find My Size',
-      base: spec.base || '',
-      color: spec.color || spec.accent || '',
-      textColor: spec.textColor || '',
-      radius: spec.radius || '',
-      side: spec.side === 'left' ? 'left' : 'right',
-      // Floating is the default: a tag at the top of <body> becomes a FAB.
-      // Only data-float="0" pins it inline instead.
-      float: spec.float !== '0' && spec.float !== 'false',
-    });
+    fetch('https://findmysize.onrender.com/api/charts/code/' + encodeURIComponent(code))
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (chart) {
+        if (chart) ready[code] = chart;
+        var btn = (chart && chart.popup && chart.popup.button) || {};
+        mount(null, {
+          code: code,
+          name: spec.name || '',
+          label: btn.label || spec.label || 'Find My Size',
+          color: btn.bg || spec.color || '',
+          textColor: btn.textColor || spec.textColor || '',
+          radius: btn.radius != null ? btn.radius : (spec.radius || ''),
+          side: spec.side === 'left' ? 'left' : 'right',
+          float: spec.float !== '0' && spec.float !== 'false',
+          base: spec.base || '',
+        });
+      })
+      .catch(function () {
+        mount(null, { code: code, label: spec.label || 'Find My Size', base: spec.base || '' });
+      });
   }
   if (document.body) autoMount();
   else document.addEventListener('DOMContentLoaded', autoMount, { once: true });
