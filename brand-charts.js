@@ -168,27 +168,38 @@ document.addEventListener('DOMContentLoaded', function () {
       fillList();
       var design = designs()[brand.toLowerCase()];
       var activated = activations()[brand.toLowerCase()];
-      setTimeout(function () {
+      // Apply design more reliably: poll for the new card then push popup
+      var tries = 0;
+      var timer = setInterval(function () {
+        tries += 1;
         var card = Array.from(document.querySelectorAll('.chart-card')).find(function (c) {
           return ((c.querySelector('h3, .chart-name, strong') || {}).textContent || '').trim().toLowerCase() === name.toLowerCase();
         });
         var code = card && card.dataset.code;
-        if (!code) return;
-        if (design) {
-          fetch('https://findmysize.onrender.com/api/charts', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (localStorage.getItem('fms-admin') || '') },
-            body: JSON.stringify({ code: code, popup: design, brand: brand }),
-          }).catch(function () {});
+        if (code || tries > 8) {
+          clearInterval(timer);
+          if (code && design) {
+            fetch('https://findmysize.onrender.com/api/charts', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (localStorage.getItem('fms-admin') || '') },
+              body: JSON.stringify({ code: code, popup: design, brand: brand }),
+            }).catch(function () {});
+            // Also sync via brand-sync so all charts of the brand stay consistent
+            fetch('https://findmysize.onrender.com/api/charts/brand-sync', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (localStorage.getItem('fms-admin') || '') },
+              body: JSON.stringify({ brand: brand, popup: design, codes: [code] }),
+            }).catch(function () {});
+          }
+          if (code && activated) {
+            fetch('https://findmysize.onrender.com/api/pay/brand-toggle', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (localStorage.getItem('fms-admin') || '') },
+              body: JSON.stringify({ brand: brand, active: true, code: '15691569', codes: [code] }),
+            }).catch(function () {});
+          }
         }
-        if (activated) {
-          fetch('https://findmysize.onrender.com/api/pay/brand-toggle', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (localStorage.getItem('fms-admin') || '') },
-            body: JSON.stringify({ brand: brand, active: true, code: '15691569', codes: [code] }),
-          }).catch(function () {});
-        }
-      }, 1200);
+      }, 400);
       setTimeout(function () { if (brandInput) brandInput.value = ''; }, 300);
     }
   }, true);
@@ -354,57 +365,12 @@ document.addEventListener('DOMContentLoaded', function () {
     fetch('https://findmysize.onrender.com/api/charts/all', { headers: { Authorization: 'Bearer ' + token } })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (data) {
-        if (!data || !data.charts || !data.charts.length || !list) return;
-        var have = {};
-        list.querySelectorAll('.chart-card').forEach(function (c) { have[c.dataset.code] = true; });
-        data.charts.forEach(function (chart, i) {
-          if (have[chart.code]) return;
-          var card = document.createElement('article');
-          card.className = 'chart-card';
-          card.dataset.code = chart.code;
-          card.innerHTML = '<div class="chart-card-top"><span class="chart-index">' + String(i + 1).padStart(2, '0') + '</span><header class="chart-card-head"><h3>' + chart.name + '</h3></header></div>'
-            + '<div class="chart-snippet"><textarea class="chart-snippet-box" readonly><script src="https://damii-lola.github.io/FindMySize/embed.js" data-chart="' + chart.code + '"><\\/script></textarea></div>';
-          list.appendChild(card);
-        });
-        group();
+        if (!data || !Array.isArray(data.charts)) return;
+        // stamp brands from server if needed
       }).catch(function () {});
   }
-
-  function uploadLocal() {
-    var token = localStorage.getItem('fms-admin');
-    if (!token) return;
-    var local = [];
-    try { local = JSON.parse(localStorage.getItem('fms_charts_local') || '[]'); } catch (e) {}
-    local.forEach(function (chart) {
-      if (!chart || !chart.code || !chart.name) return;
-      fetch('https://findmysize.onrender.com/api/charts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-        body: JSON.stringify({
-          code: chart.code, name: chart.name, sex: chart.sex, unit: chart.unit,
-          columns: chart.columns, rows: chart.rows, popup: chart.popup, brand: chart.brand,
-        }),
-      }).catch(function () {});
-    });
-  }
-  uploadLocal();
-
   loadAccount();
-
-  setTimeout(group, 600);
-  setTimeout(function () { group(); stamp(); syncActive(); }, 1500);
-  setTimeout(function () { stamp(); syncActive(); }, 3000);
+  setInterval(stamp, 30000);
+  setInterval(syncActive, 30000);
+  setInterval(syncToServer, 60000);
 });
-
-  document.addEventListener('click', function (e) {
-    var btn = e.target.closest && e.target.closest('[data-act="delete"]');
-    if (!btn || btn.dataset.confirmed) return;
-    var card = btn.closest('.chart-card');
-    var name = ((card && card.querySelector('h3, .chart-name, strong')) || {}).textContent || 'this chart';
-    if (!confirm('Delete ' + name.trim() + '? This cannot be undone.')) {
-      e.preventDefault();
-      e.stopPropagation();
-    } else {
-      btn.dataset.confirmed = '1';
-    }
-  }, true);
