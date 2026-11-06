@@ -148,14 +148,13 @@ async function saveLocalAndServer({ id, name, sex, unit, columns, rows, popup })
 }
 
 export async function saveChart({ id, name, sex, unit, columns, rows, popup }) {
-  // Prefer the server path whenever we have an admin token so the chart lands in Supabase
-  // and public links can read it. Local is only the absolute last resort.
-  if (hasAdminToken()) {
-    try {
-      const body = { name: name.trim().slice(0, 60), sex, unit, columns, rows, popup: popup || {} };
-      if (id) body.id = id;
-      const saved = await api('/api/charts', { method: 'POST', body });
-      if (saved && saved.code) {
+  // Always try the server first so the chart lands in Supabase and public links work.
+  // Local is only the absolute last resort if the server is unreachable.
+  try {
+    const body = { name: name.trim().slice(0, 60), sex, unit, columns, rows, popup: popup || {} };
+    if (id) body.id = id;
+    const saved = await api('/api/charts', { method: 'POST', body });
+    if (saved && saved.code) {
         // Keep a local copy for offline dashboard too
         const charts = localList();
         const existing = charts.find((c) => c.code === saved.code || c.id === id);
@@ -172,7 +171,6 @@ export async function saveChart({ id, name, sex, unit, columns, rows, popup }) {
     } catch (e) {
       console.warn('[charts] server save failed, falling back:', e.message);
     }
-  }
   if (!(await hasSession())) {
     return saveLocalAndServer({ id, name, sex, unit, columns, rows, popup });
   }
