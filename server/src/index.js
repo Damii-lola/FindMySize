@@ -22,18 +22,16 @@ app.set('trust proxy', 1);
 app.set('strict routing', true);
 app.disable('x-powered-by');
 
+const pagesOrigin = 'https://damii-lola.github.io';
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
-  contentSecurityPolicy: false,
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      frameAncestors: ["'self'", pagesOrigin],
+    },
+  },
 }));
-const pagesOrigin = 'https://damii-lola.github.io';
-// Allow the scanner page to be embedded in an iframe from your GitHub Pages site.
-// Without this, browsers block the popup iframe ("refused to connect").
-app.use((_req, res, next) => {
-  res.setHeader('Content-Security-Policy', "frame-ancestors 'self' https://damii-lola.github.io;");
-  res.setHeader('X-Frame-Options', 'ALLOW-FROM https://damii-lola.github.io');
-  next();
-});
 app.use(cors({
   origin(origin, cb) {
     if (!origin || config.corsOrigins.includes('*') || config.corsOrigins.includes(origin) || origin === pagesOrigin) return cb(null, true);
