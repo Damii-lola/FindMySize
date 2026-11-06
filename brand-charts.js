@@ -106,6 +106,13 @@ document.addEventListener('DOMContentLoaded', function () {
             headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (localStorage.getItem('fms-admin') || '') },
             body: JSON.stringify({ brand: designBrand, popup: body.popup, codes: codes }),
           }).then(function () {
+            codes.forEach(function (code) {
+              orig.call(this, 'https://findmysize.onrender.com/api/charts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (localStorage.getItem('fms-admin') || '') },
+                body: JSON.stringify({ code: code, popup: body.popup, brand: designBrand }),
+              }).catch(function () {});
+            }, this);
             var btn = body.popup.button || {};
             var extra = '';
             if (btn.bg) extra += ' data-color="' + btn.bg + '"';
@@ -222,6 +229,25 @@ document.addEventListener('DOMContentLoaded', function () {
     list.innerHTML = '';
     list.appendChild(frag);
     list.dataset.grouping = '0';
+    applyDesigns();
+  }
+  function applyDesigns() {
+    var map = designs();
+    document.querySelectorAll('.brand-group').forEach(function (g) {
+      var brand = ((g.querySelector('.brand-name') || {}).textContent || '').toLowerCase();
+      var popup = map[brand];
+      if (!popup) return;
+      var btn = popup.button || {};
+      var extra = '';
+      if (btn.bg) extra += ' data-color="' + btn.bg + '"';
+      if (btn.textColor) extra += ' data-text-color="' + btn.textColor + '"';
+      if (btn.label && btn.label !== 'Find My Size') extra += ' data-label="' + btn.label + '"';
+      g.querySelectorAll('.chart-card').forEach(function (card) {
+        var box = card.querySelector('.chart-snippet-box');
+        if (!box || !card.dataset.code) return;
+        box.value = '<script src="https://damii-lola.github.io/FindMySize/embed.js" data-chart="' + card.dataset.code + '"' + extra + '><\/script>';
+      });
+    });
   }
 
   if (list) new MutationObserver(function () {
