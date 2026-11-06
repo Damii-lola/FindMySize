@@ -249,16 +249,25 @@ document.addEventListener('DOMContentLoaded', function () {
         var n = groups[brand].length;
         if (!confirm('Delete ' + brand + ' and its ' + n + (n === 1 ? ' chart' : ' charts') + '? This cannot be undone.')) return;
         var codes = Array.from(details.querySelectorAll('.chart-card')).map(function (c) { return c.dataset.code; }).filter(Boolean);
+        // Delete every chart on the server
         for (var i = 0; i < codes.length; i++) {
           await fetch('https://findmysize.onrender.com/api/charts/code/' + encodeURIComponent(codes[i]), {
             method: 'DELETE',
             headers: { Authorization: 'Bearer ' + (localStorage.getItem('fms-admin') || '') },
           }).catch(function () {});
         }
+        // Also wipe them from local storage so they don't reappear as Ungrouped
+        try {
+          var local = JSON.parse(localStorage.getItem('fms_charts_local') || '[]');
+          local = local.filter(function (c) { return codes.indexOf(c.code) === -1; });
+          localStorage.setItem('fms_charts_local', JSON.stringify(local));
+        } catch (e) {}
         var map = brands();
         Object.keys(map).forEach(function (name) { if (map[name] === brand) delete map[name]; });
         saveBrands(map);
         details.remove();
+        // Force a clean reload of the list so nothing leftover shows as Ungrouped
+        setTimeout(function () { location.reload(); }, 400);
       });
       var activate = actions.querySelector('[data-activate]');
       if (activate) activate.addEventListener('click', async function () {
