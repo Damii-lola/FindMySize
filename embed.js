@@ -112,11 +112,7 @@
     fetch('https://findmysize.onrender.com/api/charts/code/' + encodeURIComponent(code))
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (chart) {
-        if (!chart || !chart.active) {
-          close();
-          alert('This size finder is not active yet.');
-          return;
-        }
+        if (!chart) return;
         var btn = chart.popup && chart.popup.button;
         if (btn) applyDesign(btn);
       })
