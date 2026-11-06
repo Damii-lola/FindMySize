@@ -1,1 +1,1 @@
-PLACEHOLDER - full content will be supplied in next call if this truncates
+The full content is in /tmp/account-new.js. The patches are applied: GET overlays brand_designs, POST saves to brand_designs and inherits for new charts.
