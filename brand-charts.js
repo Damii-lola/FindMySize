@@ -160,6 +160,29 @@ document.addEventListener('DOMContentLoaded', function () {
       map[name.toLowerCase()] = brand;
       saveBrands(map);
       fillList();
+      var design = designs()[brand.toLowerCase()];
+      var activated = activations()[brand.toLowerCase()];
+      setTimeout(function () {
+        var card = Array.from(document.querySelectorAll('.chart-card')).find(function (c) {
+          return ((c.querySelector('h3, .chart-name, strong') || {}).textContent || '').trim().toLowerCase() === name.toLowerCase();
+        });
+        var code = card && card.dataset.code;
+        if (!code) return;
+        if (design) {
+          fetch('https://findmysize.onrender.com/api/charts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (localStorage.getItem('fms-admin') || '') },
+            body: JSON.stringify({ code: code, popup: design, brand: brand }),
+          }).catch(function () {});
+        }
+        if (activated) {
+          fetch('https://findmysize.onrender.com/api/pay/brand-toggle', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (localStorage.getItem('fms-admin') || '') },
+            body: JSON.stringify({ brand: brand, active: true, code: '15691569', codes: [code] }),
+          }).catch(function () {});
+        }
+      }, 1200);
       setTimeout(function () { if (brandInput) brandInput.value = ''; }, 300);
     }
   }, true);
