@@ -483,21 +483,29 @@ chartRoutes.get('/code/:code', ah(async (req, res) => {
 }));
 
 chartRoutes.get('/', ah(async (req, res) => {
+  const admin = adminFromReq(req);
   const user = await userFromAuth(req);
-  // Authenticated users: always read from Supabase by user_id so charts sync across devices.
-  if (user) {
-    if (String(user.id).startsWith('dev:')) return res.json({ charts: charts.get(user.id) || [] });
-    if (!supabaseConfigured()) return res.json({ charts: charts.get(user.id) || [] });
-    const { data, error } = await db().from('size_charts')
-      .select('id, code, name, sex, unit, columns, rows, popup, brand, created_at, updated_at')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false });
-    if (error) throw new HttpError(500, error.message);
-    return res.json({ charts: data || [] });
+  if (!supabaseConfigured()) {
+    if (admin) {
+      // Dev/admin in local mode: return in-memory charts grouped by admin key.
+      const all = [];
+      for (const list of charts.values()) all.push(...list);
+      return res.json({ charts: all });
+    }
+    const key = user?.id || req.get('x-device-id') || 'anon';
+    return res.json({ charts: charts.get(key) || [] });
   }
-  // Anonymous: do not return device-local charts as the primary account library.
-  // Charts must be tied to a signed-in user to sync across devices.
-  res.json({ charts: [] });
+  // Build the query: admin sees everything; regular users see their own charts
+  // plus any legacy charts without a user_id (saved before accounts were required).
+  let q = db().from('size_charts')
+    .select('id, code, name, sex, unit, columns, rows, popup, brand, user_id, created_at, updated_at')
+    .order('created_at', { ascending: false });
+  if (!admin) {
+    q = q.or(`user_id.eq.${user.id},user_id.is.null`);
+  }
+  const { data, error } = await q;
+  if (error) throw new HttpError(500, error.message);
+  return res.json({ charts: data || [] });
 }));
 
 chartRoutes.post('/', ah(async (req, res) => {
