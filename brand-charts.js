@@ -12,19 +12,79 @@ document.addEventListener('DOMContentLoaded', function () {
     var style = document.createElement('style');
     style.id = 'brand-style';
     style.textContent = [
-      '.brand-group{margin:0 0 16px;border:1px solid rgba(34,26,21,.1);border-radius:22px;background:#fff;box-shadow:0 10px 30px -22px rgba(34,26,21,.4);overflow:hidden}',
-      '.brand-group summary{list-style:none;cursor:pointer;padding:0;display:block}',
+      /* ---- the brand groups ---- */
+      '.brand-group{margin:0 0 14px;border:1px solid rgba(34,26,21,.1);border-radius:22px;background:var(--paper,#fff);box-shadow:0 10px 30px -22px rgba(34,26,21,.4);overflow:hidden;transition:border-color .2s,box-shadow .2s}',
+      '.brand-group:hover{border-color:rgba(34,26,21,.2);box-shadow:0 16px 38px -22px rgba(34,26,21,.5)}',
+      '.brand-group[open]{border-color:rgba(240,82,31,.35)}',
+      '.brand-group summary{list-style:none;cursor:pointer;padding:0;display:block;border-radius:22px}',
       '.brand-group summary::-webkit-details-marker{display:none}',
-      '.brand-row{display:flex;align-items:center;gap:16px;padding:20px 22px}',
-      '.brand-mark{width:44px;height:44px;border-radius:14px;background:#221a15;color:#f5e9d6;display:grid;place-items:center;font-weight:700;font-size:16px;flex:none}',
+      '.brand-group summary:focus-visible{outline:2px solid var(--orange,#f0521f);outline-offset:-3px}',
+      '.brand-row{display:flex;align-items:center;gap:16px;padding:18px 20px;transition:background .15s}',
+      '.brand-group summary:hover .brand-row{background:rgba(34,26,21,.025)}',
+      '.brand-group[open] > summary .brand-row{border-bottom:1px solid rgba(34,26,21,.08)}',
+      '.brand-mark{width:46px;height:46px;border-radius:15px;background:#221a15;color:#fff;display:grid;place-items:center;font-weight:700;font-size:18px;flex:none;box-shadow:inset 0 0 0 1px rgba(255,255,255,.18),0 8px 16px -10px rgba(0,0,0,.5)}',
       '.brand-copy{flex:1;min-width:0}',
-      '.brand-kicker{margin:0 0 2px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#f0521f;font-weight:700}',
-      '.brand-name{margin:0;font-size:26px;line-height:1.1;font-weight:650;letter-spacing:-.03em;color:#221a15}',
-      '.brand-meta{margin:4px 0 0;font-size:13px;color:#6b5b4e}',
-      '.brand-chev{width:28px;height:28px;border-radius:999px;border:1px solid rgba(34,26,21,.12);display:grid;place-items:center;flex:none;transition:transform .2s}',
-      '.brand-chev:before{content:"";width:7px;height:7px;border-right:1.5px solid #221a15;border-bottom:1.5px solid #221a15;transform:rotate(45deg) translate(-1px,-1px)}',
-      '.brand-group[open] .brand-chev{transform:rotate(180deg)}',
-      '.brand-group > :not(summary){margin:0 14px 14px;border-radius:16px}','.brand-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:0 22px 16px}','.brand-actions input{padding:8px 12px;border-radius:999px;border:1px solid rgba(34,26,21,.16);font:inherit}','.brand-actions button{border-radius:999px;padding:8px 14px;font:inherit;font-weight:650;cursor:pointer}','.brand-on{background:#e7f6ee;color:#157347}','.brand-off{background:#fff4e8;color:#9a4d12}','.brand-primary{background:#f0521f;color:#fff;border:0}','.brand-ghost{background:#fff;border:1px solid rgba(34,26,21,.16)}','.brand-group [data-act="preview"]{display:none}'
+      '.brand-kicker{margin:0 0 2px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--orange,#f0521f);font-weight:700}',
+      '.brand-name{margin:0;font-size:25px;line-height:1.1;font-weight:650;letter-spacing:-.03em;color:var(--ink-2,#221a15);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transition:color .15s}',
+      '.brand-group summary:hover .brand-name{color:var(--orange-text,#a9330a)}',
+      '.brand-meta{margin:5px 0 0;font-size:13px;color:var(--muted-strong,#6b5b4e);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+      '.brand-tags{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 0}',
+      '.brand-tags:empty{display:none}',
+      '.brand-chip{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;background:rgba(34,26,21,.06);color:var(--ink-soft,#3b3028);font-size:11px;font-weight:650;letter-spacing:.02em}',
+      '.brand-chip:before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.55}',
+      '.brand-chip--on{background:#e7f6ee;color:#157347}',
+      '.brand-chev{width:32px;height:32px;border-radius:999px;border:1px solid rgba(34,26,21,.14);display:grid;place-items:center;flex:none;transition:transform .25s cubic-bezier(.22,1,.36,1),background .15s,border-color .15s}',
+      '.brand-group summary:hover .brand-chev{background:#fff;border-color:rgba(34,26,21,.28)}',
+      '.brand-chev:before{content:"";width:7px;height:7px;border-right:1.7px solid #221a15;border-bottom:1.7px solid #221a15;transform:rotate(45deg) translate(-1px,-1px)}',
+      '.brand-group[open] .brand-chev{transform:rotate(180deg);background:var(--orange,#f0521f);border-color:var(--orange,#f0521f)}',
+      '.brand-group[open] .brand-chev:before{border-color:#fff}',
+      '.brand-group > :not(summary){margin:0 14px 14px;border-radius:16px}',
+      '.brand-group[open] > :not(summary){animation:brand-in .26s cubic-bezier(.22,1,.36,1) both}',
+      '.brand-group[open] > :nth-child(3){animation-delay:.04s}.brand-group[open] > :nth-child(4){animation-delay:.08s}.brand-group[open] > :nth-child(5){animation-delay:.12s}',
+      '@keyframes brand-in{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}',
+      '.brand-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:14px 20px 4px;margin:0!important}',
+      '.brand-actions input{padding:8px 12px;border-radius:999px;border:1px solid rgba(34,26,21,.16);font:inherit}',
+      '.brand-actions button{display:inline-flex;align-items:center;gap:8px;border-radius:999px;padding:9px 16px;font:inherit;font-size:14px;font-weight:650;cursor:pointer;transition:transform .15s,background .15s,box-shadow .15s,color .15s,border-color .15s}',
+      '.brand-actions button:hover{transform:translateY(-1px)}',
+      '.brand-actions button:focus-visible{outline:2px solid var(--orange,#f0521f);outline-offset:2px}',
+      '.brand-actions svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}',
+      '.brand-on{background:#e7f6ee;color:#157347}',
+      '.brand-off{background:#fff4e8;color:#9a4d12}',
+      '.brand-primary{background:var(--orange,#f0521f);color:#fff;border:0;box-shadow:0 10px 20px -12px rgba(240,82,31,.9)}',
+      '.brand-primary:hover{box-shadow:0 14px 24px -12px rgba(240,82,31,.95)}',
+      '.brand-ghost{background:transparent;color:var(--ink-soft,#3b3028);border:1px solid rgba(34,26,21,.16)}',
+      '.brand-ghost[data-delete-brand]:hover{background:#fdecec;color:#b42318;border-color:#f3b6b0}',
+      '.brand-group [data-act="preview"]{display:none}',
+      /* ---- the brand field and its menu ---- */
+      '.brand-combo{position:relative;display:block}',
+      '.brand-combo input{width:100%;box-sizing:border-box;padding-right:78px!important}',
+      '.brand-combo[data-open="true"] input{border-color:var(--orange,#f0521f)!important;box-shadow:0 0 0 4px rgba(240,82,31,.14)!important}',
+      '.brand-combo-btns{position:absolute;top:50%;right:8px;transform:translateY(-50%);display:flex;align-items:center;gap:2px}',
+      '.brand-combo-btns button{width:28px;height:28px;border:0;border-radius:999px;background:transparent;color:var(--muted-strong,#6b5b4e);display:grid;place-items:center;cursor:pointer;padding:0;transition:background .12s,color .12s,transform .2s}',
+      '.brand-combo-btns button:hover{background:rgba(34,26,21,.08);color:#221a15}',
+      '.brand-combo-btns button:focus-visible{outline:2px solid var(--orange,#f0521f)}',
+      '.brand-combo-btns svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}',
+      '.brand-clear{display:none!important}',
+      '.brand-combo[data-has="true"] .brand-clear{display:grid!important}',
+      '.brand-combo[data-open="true"] .brand-toggle svg{transform:rotate(180deg)}',
+      '.brand-toggle svg{transition:transform .2s}',
+      '.brand-menu{position:absolute;left:0;right:0;top:calc(100% + 8px);z-index:60;background:var(--paper,#fff);border:1px solid rgba(34,26,21,.12);border-radius:18px;max-height:290px;overflow:auto;padding:6px;box-shadow:0 22px 50px -18px rgba(34,26,21,.45),0 2px 6px rgba(34,26,21,.06);animation:brand-pop .16s cubic-bezier(.22,1,.36,1);transform-origin:top center;overscroll-behavior:contain}',
+      '@keyframes brand-pop{from{opacity:0;transform:translateY(-6px) scale(.985)}to{opacity:1;transform:none}}',
+      '.brand-menu[hidden]{display:none}',
+      '.brand-menu-head{margin:4px 10px 6px;font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted-strong,#6b5b4e)}',
+      '.brand-opt{display:flex;align-items:center;gap:12px;padding:9px 10px;border-radius:12px;cursor:pointer;color:var(--ink-2,#221a15);font-weight:550;transition:background .1s}',
+      '.brand-opt[aria-selected="true"]{background:#f5efe6}',
+      '.brand-opt-mark{width:32px;height:32px;border-radius:10px;display:grid;place-items:center;color:#fff;font-size:13px;font-weight:700;flex:none}',
+      '.brand-opt-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+      '.brand-opt-name mark{background:rgba(240,82,31,.18);color:inherit;border-radius:4px;padding:0 1px}',
+      '.brand-opt-count{font-size:12px;font-weight:600;color:var(--muted-strong,#6b5b4e);flex:none}',
+      '.brand-opt--new{border:1px dashed rgba(240,82,31,.45);margin-bottom:4px;background:rgba(240,82,31,.05)}',
+      '.brand-opt--new[aria-selected="true"]{background:rgba(240,82,31,.12)}',
+      '.brand-opt--new .brand-opt-mark{background:var(--orange,#f0521f)!important}',
+      '.brand-opt-hint{font-size:11px;font-weight:700;color:var(--orange-text,#a9330a);letter-spacing:.06em;text-transform:uppercase;flex:none}',
+      '.brand-empty{padding:18px 14px;text-align:center;font-size:13.5px;line-height:1.5;color:var(--muted-strong,#6b5b4e)}',
+      '@media (max-width:520px){.brand-row{padding:15px 14px;gap:12px}.brand-name{font-size:21px}.brand-mark{width:40px;height:40px;border-radius:13px}.brand-actions{padding:12px 14px 2px}.brand-actions button{flex:1 1 auto;justify-content:center}}',
+      '@media (prefers-reduced-motion:reduce){.brand-menu,.brand-group[open] > :not(summary){animation:none}.brand-chev,.brand-actions button{transition:none}}'
     ].join('');
     document.head.appendChild(style);
   }
@@ -69,39 +129,204 @@ document.addEventListener('DOMContentLoaded', function () {
     Object.values(brands()).forEach(function (b) { if (b) set[b] = true; });
     return Object.keys(set).sort();
   }
-  function fillList() {
-    var box = document.getElementById('brand-suggest');
-    if (!box) return;
-    var q = (brandInput && brandInput.value || '').trim().toLowerCase();
-    var items = known().filter(function (b) { return !q || b.toLowerCase().indexOf(q) !== -1; });
-    box.innerHTML = '';
-    if (!items.length) { box.hidden = true; return; }
-    items.forEach(function (b) {
-      var btn = document.createElement('button');
-      btn.type = 'button';
-      btn.textContent = b;
-      btn.style.cssText = 'display:block;width:100%;text-align:left;padding:10px 14px;border:0;background:transparent;font:inherit;font-weight:550;cursor:pointer;border-radius:10px;color:#221a15;transition:background .12s';
-      btn.onmouseenter = function(){ this.style.background = '#f5efe6'; };
-      btn.onmouseleave = function(){ this.style.background = 'transparent'; };
-      btn.addEventListener('mousedown', function (e) {
-        e.preventDefault();
-        brandInput.value = b;
-        box.hidden = true;
-      });
-      box.appendChild(btn);
-    });
-    box.hidden = false;
+  /* A colour for a brand, the same every time it is seen: the menu and the group header agree. */
+  function brandColour(name) {
+    var h = 0;
+    for (var i = 0; i < name.length; i += 1) h = (h * 31 + name.charCodeAt(i)) % 360;
+    return 'hsl(' + h + ' 42% 36%)';
   }
-  if (brandInput && brandList) {
+  function counts() {
+    var c = {};
+    Object.values(brands()).forEach(function (b) { if (b) c[b] = (c[b] || 0) + 1; });
+    return c;
+  }
+  function svgIcon(paths, extra) {
+    var s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    s.setAttribute('viewBox', '0 0 24 24');
+    s.setAttribute('aria-hidden', 'true');
+    paths.forEach(function (d) {
+      var p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      p.setAttribute('d', d);
+      s.appendChild(p);
+    });
+    if (extra) s.setAttribute('class', extra);
+    return s;
+  }
+
+  var menuApi = { refresh: function () {} };
+  function fillList() { menuApi.refresh(); }
+
+  if (brandInput) {
+    var combo = document.createElement('div');
+    combo.className = 'brand-combo';
+    brandInput.parentNode.insertBefore(combo, brandInput);
+    combo.appendChild(brandInput);
+
+    var buttons = document.createElement('div');
+    buttons.className = 'brand-combo-btns';
+    var clearBtn = document.createElement('button');
+    clearBtn.type = 'button';
+    clearBtn.className = 'brand-clear';
+    clearBtn.setAttribute('aria-label', 'Clear brand');
+    clearBtn.appendChild(svgIcon(['M6 6l12 12', 'M18 6 6 18']));
+    var toggleBtn = document.createElement('button');
+    toggleBtn.type = 'button';
+    toggleBtn.className = 'brand-toggle';
+    toggleBtn.setAttribute('aria-label', 'Show all brands');
+    toggleBtn.tabIndex = -1;
+    toggleBtn.appendChild(svgIcon(['M6 9l6 6 6-6']));
+    buttons.appendChild(clearBtn);
+    buttons.appendChild(toggleBtn);
+    combo.appendChild(buttons);
+
     var box = document.createElement('div');
     box.id = 'brand-suggest';
+    box.className = 'brand-menu';
+    box.setAttribute('role', 'listbox');
+    box.setAttribute('aria-label', 'Brands');
     box.hidden = true;
-    box.style.cssText = 'position:absolute;z-index:40;background:#fff;border:1px solid rgba(34,26,21,.12);border-radius:16px;margin-top:6px;max-height:220px;overflow:auto;width:100%;box-shadow:0 12px 40px -16px rgba(34,26,21,.35);padding:6px';
-    brandInput.parentElement.style.position = 'relative';
-    brandInput.parentElement.appendChild(box);
-    brandInput.addEventListener('focus', fillList);
-    brandInput.addEventListener('input', fillList);
-    brandInput.addEventListener('blur', function () { setTimeout(function () { box.hidden = true; }, 150); });
+    combo.appendChild(box);
+
+    brandInput.setAttribute('role', 'combobox');
+    brandInput.setAttribute('aria-autocomplete', 'list');
+    brandInput.setAttribute('aria-haspopup', 'listbox');
+    brandInput.setAttribute('aria-controls', 'brand-suggest');
+    brandInput.setAttribute('aria-expanded', 'false');
+
+    var rows = [];     // [{ name, isNew }]
+    var current = -1;
+    var showAll = false;
+
+    function isOpen() { return !box.hidden; }
+    function syncState() {
+      combo.dataset.open = String(isOpen());
+      combo.dataset.has = String(!!brandInput.value);
+      brandInput.setAttribute('aria-expanded', String(isOpen()));
+    }
+    function close() {
+      box.hidden = true;
+      current = -1;
+      showAll = false;
+      brandInput.removeAttribute('aria-activedescendant');
+      syncState();
+    }
+    function highlight(node, text, q) {
+      var at = q ? text.toLowerCase().indexOf(q) : -1;
+      if (at < 0) { node.textContent = text; return; }
+      node.appendChild(document.createTextNode(text.slice(0, at)));
+      var mark = document.createElement('mark');
+      mark.textContent = text.slice(at, at + q.length);
+      node.appendChild(mark);
+      node.appendChild(document.createTextNode(text.slice(at + q.length)));
+    }
+    function choose(name) {
+      brandInput.value = name;
+      close();
+      brandInput.focus();
+    }
+    function setCurrent(index, scroll) {
+      var opts = box.querySelectorAll('.brand-opt');
+      if (!opts.length) { current = -1; return; }
+      current = (index + opts.length) % opts.length;
+      opts.forEach(function (o, i) { o.setAttribute('aria-selected', String(i === current)); });
+      brandInput.setAttribute('aria-activedescendant', opts[current].id);
+      if (scroll) opts[current].scrollIntoView({ block: 'nearest' });
+    }
+    function render() {
+      var typed = (brandInput.value || '').trim();
+      var q = typed.toLowerCase();
+      var all = known();
+      var items = all.filter(function (b) { return showAll || !q || b.toLowerCase().indexOf(q) !== -1; });
+      var exact = all.some(function (b) { return b.toLowerCase() === q; });
+      var n = counts();
+      rows = [];
+      box.textContent = '';
+      if (typed && !exact) rows.push({ name: typed, isNew: true });
+      items.forEach(function (b) { rows.push({ name: b, isNew: false }); });
+
+      if (items.length) {
+        var head = document.createElement('div');
+        head.className = 'brand-menu-head';
+        head.textContent = q && !showAll ? 'Matching brands' : 'Your brands';
+        if (typed && !exact) box.appendChild(optNode(0));
+        box.appendChild(head);
+      } else if (typed && !exact) {
+        box.appendChild(optNode(0));
+      }
+      var start = typed && !exact ? 1 : 0;
+      items.forEach(function (b, i) { box.appendChild(optNode(start + i)); });
+      if (!rows.length) {
+        var empty = document.createElement('div');
+        empty.className = 'brand-empty';
+        empty.textContent = 'No brands yet. Type a name above to create your first one.';
+        box.appendChild(empty);
+      }
+
+      function optNode(index) {
+        var row = rows[index];
+        var opt = document.createElement('div');
+        opt.className = 'brand-opt' + (row.isNew ? ' brand-opt--new' : '');
+        opt.id = 'brand-opt-' + index;
+        opt.setAttribute('role', 'option');
+        opt.setAttribute('aria-selected', 'false');
+        var mark = document.createElement('span');
+        mark.className = 'brand-opt-mark';
+        mark.setAttribute('aria-hidden', 'true');
+        mark.style.background = brandColour(row.name);
+        mark.textContent = row.isNew ? '+' : row.name.slice(0, 1).toUpperCase();
+        var label = document.createElement('span');
+        label.className = 'brand-opt-name';
+        if (row.isNew) label.textContent = 'Create \u201c' + row.name + '\u201d';
+        else highlight(label, row.name, showAll ? '' : q);
+        opt.appendChild(mark);
+        opt.appendChild(label);
+        var side = document.createElement('span');
+        side.className = row.isNew ? 'brand-opt-hint' : 'brand-opt-count';
+        side.textContent = row.isNew ? 'New brand' : (n[row.name] || 0) + ((n[row.name] || 0) === 1 ? ' garment' : ' garments');
+        opt.appendChild(side);
+        // mousedown, not click: the field must keep its focus while a choice is made
+        opt.addEventListener('mousedown', function (e) { e.preventDefault(); choose(row.name); });
+        opt.addEventListener('mousemove', function () { if (current !== index) setCurrent(index, false); });
+        return opt;
+      }
+      box.hidden = false;
+      // nothing is chosen until the person moves: Enter then submits the form as usual
+      current = -1;
+      syncState();
+    }
+    menuApi.refresh = function () { if (isOpen()) render(); else syncState(); };
+
+    brandInput.addEventListener('focus', function () { render(); });
+    brandInput.addEventListener('click', function () { if (!isOpen()) render(); });
+    brandInput.addEventListener('input', function () { showAll = false; render(); });
+    brandInput.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (!isOpen()) render();
+        setCurrent(current < 0 ? (e.key === 'ArrowDown' ? 0 : -1) : current + (e.key === 'ArrowDown' ? 1 : -1), true);
+      } else if (e.key === 'Enter' && isOpen() && current >= 0 && rows[current]) {
+        e.preventDefault();
+        choose(rows[current].name);
+      } else if (e.key === 'Escape' && isOpen()) {
+        e.preventDefault();
+        e.stopPropagation();
+        close();
+      } else if (e.key === 'Tab') {
+        close();
+      }
+    });
+    combo.addEventListener('focusout', function (e) {
+      if (!combo.contains(e.relatedTarget)) setTimeout(function () { if (!combo.contains(document.activeElement)) close(); }, 0);
+    });
+    [clearBtn, toggleBtn].forEach(function (b) { b.addEventListener('mousedown', function (e) { e.preventDefault(); }); });
+    clearBtn.addEventListener('click', function () { brandInput.value = ''; brandInput.focus(); render(); });
+    toggleBtn.addEventListener('click', function () {
+      if (isOpen()) { close(); return; }
+      showAll = true;
+      brandInput.focus();
+      render();
+    });
+    syncState();
   }
 
   var orig = window.fetch;
@@ -202,7 +427,7 @@ document.addEventListener('DOMContentLoaded', function () {
           }
         }
       }, 400);
-      setTimeout(function () { if (brandInput) brandInput.value = ''; }, 300);
+      setTimeout(function () { if (brandInput) brandInput.value = ''; fillList(); }, 300);
     }
   }, true);
 
@@ -228,11 +453,54 @@ document.addEventListener('DOMContentLoaded', function () {
       var summary = document.createElement('summary');
       var n = groups[brand].length;
       var active = activations()[brand.toLowerCase()];
-      summary.innerHTML = '<div class="brand-row"><span class="brand-mark">' + brand.slice(0,1).toUpperCase() + '</span><div class="brand-copy"><p class="brand-kicker">Brand</p><p class="brand-name">' + brand + '</p><p class="brand-meta">' + n + (n === 1 ? ' garment' : ' garments') + '</p></div><span class="brand-chev"></span></div>';
+      var hasDesign = !!designs()[brand.toLowerCase()];
+      var titles = groups[brand].map(function (c) { return ((c.querySelector('h3, .chart-name, strong') || {}).textContent || '').trim(); }).filter(Boolean);
+      var row = document.createElement('div');
+      row.className = 'brand-row';
+      var mark = document.createElement('span');
+      mark.className = 'brand-mark';
+      mark.setAttribute('aria-hidden', 'true');
+      mark.style.background = brandColour(brand);
+      mark.textContent = brand.slice(0, 1).toUpperCase();
+      var copy = document.createElement('div');
+      copy.className = 'brand-copy';
+      var kicker = document.createElement('p');
+      kicker.className = 'brand-kicker';
+      kicker.textContent = 'Brand';
+      var nameEl = document.createElement('p');
+      nameEl.className = 'brand-name';
+      nameEl.textContent = brand;
+      nameEl.title = brand;
+      var meta = document.createElement('p');
+      meta.className = 'brand-meta';
+      meta.textContent = n + (n === 1 ? ' garment' : ' garments') + (titles.length ? ' \u00b7 ' + titles.slice(0, 3).join(', ') + (titles.length > 3 ? ' +' + (titles.length - 3) + ' more' : '') : '');
+      var tags = document.createElement('div');
+      tags.className = 'brand-tags';
+      if (hasDesign) { var t1 = document.createElement('span'); t1.className = 'brand-chip'; t1.textContent = 'Custom popup'; tags.appendChild(t1); }
+      if (active) { var t2 = document.createElement('span'); t2.className = 'brand-chip brand-chip--on'; t2.textContent = 'Active'; tags.appendChild(t2); }
+      copy.appendChild(kicker); copy.appendChild(nameEl); copy.appendChild(meta); copy.appendChild(tags);
+      var chev = document.createElement('span');
+      chev.className = 'brand-chev';
+      chev.setAttribute('aria-hidden', 'true');
+      row.appendChild(mark); row.appendChild(copy); row.appendChild(chev);
+      summary.appendChild(row);
       details.appendChild(summary);
       var actions = document.createElement('div');
       actions.className = 'brand-actions';
-      actions.innerHTML = '<button type="button" class="brand-primary" data-customise>Preview & Customise Popup</button><button type="button" class="brand-ghost" data-delete-brand>Delete brand</button>';
+      var customiseBtn = document.createElement('button');
+      customiseBtn.type = 'button';
+      customiseBtn.className = 'brand-primary';
+      customiseBtn.setAttribute('data-customise', '');
+      customiseBtn.appendChild(svgIcon(['M12 3a9 9 0 1 0 0 18c1.1 0 1.8-.9 1.5-1.9-.3-1 .3-2.1 1.4-2.1H17a4 4 0 0 0 4-4c0-5-4-10-9-10z', 'M7.5 11.5h.01', 'M10 7.5h.01', 'M14.5 7.5h.01']));
+      customiseBtn.appendChild(document.createTextNode('Preview & Customise Popup'));
+      var deleteBtn = document.createElement('button');
+      deleteBtn.type = 'button';
+      deleteBtn.className = 'brand-ghost';
+      deleteBtn.setAttribute('data-delete-brand', '');
+      deleteBtn.appendChild(svgIcon(['M4 7h16', 'M9 7V4.5h6V7', 'M6.5 7l.8 12.5h9.4L17.5 7', 'M10 11v5', 'M14 11v5']));
+      deleteBtn.appendChild(document.createTextNode('Delete brand'));
+      actions.appendChild(customiseBtn);
+      actions.appendChild(deleteBtn);
       details.appendChild(actions);
       actions.addEventListener('click', function (e) { e.stopPropagation(); });
       var customise = actions.querySelector('[data-customise]');
