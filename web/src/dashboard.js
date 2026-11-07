@@ -57,6 +57,7 @@ const formTitle = document.getElementById('chart-form-title');
 const nameInput = document.getElementById('chart-name');
 const sexInput = document.getElementById('chart-sex');
 const unitInput = document.getElementById('chart-unit');
+const fitStyleInput = document.getElementById('chart-fit-style');
 const addColBtn = document.getElementById('chart-add-col');
 const tableEl = document.getElementById('chart-table');
 const headEl = document.getElementById('chart-head');
@@ -421,6 +422,7 @@ function resetForm() {
   if (badgeText) badgeText.textContent = 'New chart';
   nameInput.value = '';
   sexInput.value = 'male';
+  if (fitStyleInput) fitStyleInput.value = 'regular';
   unitInput.value = window.FMSTheme?.read?.().unit === 'cm' ? 'cm' : 'in'; // the settings page's choice, else inches
   columns = defaultColumns('male');
   paintHead();
@@ -465,6 +467,7 @@ function startEdit(chart) {
   if (badgeText) badgeText.textContent = 'Editing';
   nameInput.value = chart.name;
   sexInput.value = chart.sex;
+  if (fitStyleInput) fitStyleInput.value = ['fitted','regular','relaxed','oversized'].includes(chart.fitStyle) ? chart.fitStyle : 'regular';
   unitInput.value = chart.unit === 'cm' ? 'cm' : 'in';
   columns = columnsFromSaved(chart);
   paintHead();
@@ -533,10 +536,12 @@ function card(chart, index = 0) {
     .map((c) => c.label);
   const rows = Array.isArray(chart.rows) ? chart.rows : [];
   const count = rows.length;
+  const FIT_LABELS = { fitted: 'Fitted', regular: 'Regular', relaxed: 'Relaxed', oversized: 'Oversized' };
   meta.textContent = [
     who(chart.sex),
     `${count} size${count === 1 ? '' : 's'}`,
     chart.unit === 'cm' ? 'centimetres' : 'inches',
+    FIT_LABELS[chart.fitStyle] ? `${FIT_LABELS[chart.fitStyle]} fit` : 'Regular fit',
     scored.length ? `scored on ${scored.join(', ')}` : 'no column this app can measure',
     printed.length ? `also shows ${printed.join(', ')}` : '',
   ].filter(Boolean).join(' · ');
@@ -722,6 +727,7 @@ function openCustomizer(chart) {
           id: chart.id,
           name: chart.name,
           sex: chart.sex,
+          fitStyle: chart.fitStyle || 'regular',
           unit: chart.unit,
           columns: chart.columns,
           rows: chart.rows,
@@ -811,6 +817,7 @@ form.addEventListener('submit', async (event) => {
       id: editingId,
       name,
       sex: sexInput.value,
+      fitStyle: fitStyleInput?.value || 'regular',
       unit: unitInput.value,
       columns: savedColumns,
       rows,

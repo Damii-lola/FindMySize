@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { Router } from 'express';
+import { FIT_STYLES, DEFAULT_FIT_STYLE } from '../lib/sizing.js';
 import { db, supabaseConfigured } from '../lib/supabase.js';
 import { HttpError, ah } from '../lib/errors.js';
 import { config } from '../config.js';
@@ -522,16 +523,17 @@ chartRoutes.post('/', ah(async (req, res) => {
   if (!name) throw new HttpError(400, 'Name the chart');
   const sex = ['male', 'female', 'unisex'].includes(body.sex) ? body.sex : 'unisex';
   const unit = body.unit === 'cm' ? 'cm' : 'in';
+  const fitStyle = FIT_STYLES[body.fitStyle] ? body.fitStyle : DEFAULT_FIT_STYLE;
   const columns = Array.isArray(body.columns) ? body.columns.slice(0, 12) : [];
   const rows = Array.isArray(body.rows) ? body.rows.slice(0, 24) : [];
   const popup = body.popup && typeof body.popup === 'object' && !Array.isArray(body.popup) ? body.popup : {};
   // Existing code means an update. Otherwise mint one.
   const code = String(body.code || '').trim() || crypto.randomBytes(6).toString('hex');
   const brand = String(body.brand || '').trim().slice(0, 60);
-  const row = { id: crypto.randomUUID(), code, name, sex, unit, columns, rows, popup, brand, created_at: new Date().toISOString() };
+  const row = { id: crypto.randomUUID(), code, name, sex, unit, fitStyle, columns, rows, popup, brand, created_at: new Date().toISOString() };
 
   if (supabaseConfigured()) {
-    const payload = { code, name, sex, unit, columns, rows, popup, brand };
+    const payload = { code, name, sex, unit, fitStyle, columns, rows, popup, brand };
     // Tie charts to the authenticated user so they sync across devices.
     if (user && !String(user.id).startsWith('dev:')) payload.user_id = user.id;
 

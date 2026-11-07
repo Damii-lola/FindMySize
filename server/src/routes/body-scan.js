@@ -87,7 +87,7 @@ import { aiErrorMessage, authHeaders, classifyAiError, modelUrl, recordVision } 
 import { mistralChat, mistralConfigured } from '../lib/mistral.js';
 import { geminiChat, geminiConfigured } from '../lib/gemini.js';
 import { oaChat, oaConfigured, oaModel } from '../lib/openai-compat.js';
-import { adjustForProportions, bestSize, chartFromInput, CHARTS, chartKey, columnsFromRows } from '../lib/sizing.js';
+import { adjustForProportions, bestSize, bodyWindowLabel, chartFromInput, chartKey, columnsFromRows } from '../lib/sizing.js';
 import { measureField } from '../shared/measures.js';
 import { consume } from '../lib/limits.js';
 import { db, supabaseConfigured } from '../lib/supabase.js';
@@ -1875,28 +1875,16 @@ async function finishScan(req, res, { frames, rejected, unreadable, failures, cl
   // A store's chart carries its own sex when the store set one; when it does not
   // (a unisex chart) the sheet still has to be decided, because a chart that
   // names a bust and a chart that names a chest are not the same table.
-  let sheet = gender.guess === 'male' || gender.guess === 'female' ? gender.guess : null;
-  let bySheet = null;
-  if (!sheet && adjusted.chest != null) {
-    const m = bestSize('male', adjusted);
-    const f = bestSize('female', adjusted);
-    if (m || f) {
-      if (!m || !f) {
-        bySheet = m || f;
-        sheet = m ? 'male' : 'female';
-      } else {
-        bySheet = m.diff <= f.diff ? m : f;
-        sheet = bySheet === m ? 'male' : 'female';
-      }
-    }
-  }
+  // Sizing is garment-chart-only. No built-in fallback: a generic reference
+  // size is an opinion, not a fit, and we do not give opinions.
+  const sheet = gender.guess === 'male' || gender.guess === 'female' ? gender.guess : null;
 
   let size = null;
   let sizeBasis = null;
   let sizeSource = null;
   let sizeReason = null;
   if (chart) {
-    size = bestSize(sheet || 'male', adjusted, chart.rows, chart.columns);
+    size = bestSize(sheet || 'male', adjusted, chart.rows, chart.columns, chart.fitStyle);
     if (size) {
       const all = {};
       for (const item of catalogue.items || []) {
@@ -1906,21 +1894,10 @@ async function finishScan(req, res, { frames, rejected, unreadable, failures, cl
       size = fit.size;
       sizeReason = fit.reason;
       sizeSource = 'store';
-      // The sheet basis is reported as the shopper's own answer, or not at all:
-      // the chart decided the column, not the sheet.
       sizeBasis = sheet === gender.guess ? sheet : null;
     }
-  } else if (bySheet) {
-    size = bySheet;
-    sizeBasis = sheet;
-    sizeSource = 'reference';
-  } else if (sheet) {
-    size = bestSize(sheet, adjusted);
-    if (size) {
-      sizeBasis = sheet;
-      sizeSource = 'reference';
-    }
   }
+  // No chart → no size. sizeMissingReason below explains why.
 
   // Why a size is missing, named properly.
   //
@@ -1936,8 +1913,8 @@ async function finishScan(req, res, { frames, rejected, unreadable, failures, cl
       const col = cols.find((c) => measureField(c.measure));
       return col ? { field: measureField(col.measure), label: col.label } : null;
     }
-    const key = chartKey(CHARTS[sheet || 'male']) || 'chest';
-    return { field: measureField(key) || 'chest', label: key === 'bust' ? 'bust' : key };
+    // No chart — no deciding column. The missing-size note will say so generically.
+    return null;
   })();
   const sizeMissingReason = size ? null : (() => {
     const square = frames.filter((f) => f.view === 'front' || f.view === 'back').length;
@@ -2011,11 +1988,19 @@ async function finishScan(req, res, { frames, rejected, unreadable, failures, cl
   const profiled = frames.filter((f) => frameTurn(f) >= 70).length;
   const turned = frames.filter((f) => frameTurn(f) >= 20 && frameTurn(f) < 70).length;
 
-  if (size && Number.isFinite(adjusted[size.field])) {
-    const d = adjusted[size.field] - size.row[size.key];
+  if (size && size.bodyWindow && Number.isFinite(adjusted[size.field])) {
+    // Compare the body to the garment window, not to the raw chart cell.
+    const bv = adjusted[size.field];
+    const { lo, hi } = size.bodyWindow;
     const at = String(size.label || 'chest').toLowerCase();
-    if (d > 1.5) notes.push(`Size ${size.sizeKey} may be snug at the ${at}.`);
-    else if (d < -2) notes.push(`Size ${size.sizeKey} may be loose at the ${at}.`);
+    const windowStr = `${Math.round(lo * 10) / 10}–${Math.round(hi * 10) / 10} in`;
+    if (bv < lo) {
+      notes.push(`Size ${size.sizeKey} may be loose at the ${at} (this garment fits ${windowStr}; your ${at} is ${bv} in).`);
+    } else if (bv > hi) {
+      notes.push(`Size ${size.sizeKey} may be snug at the ${at} (this garment fits ${windowStr}; your ${at} is ${bv} in).`);
+    } else {
+      notes.push(`Size ${size.sizeKey} fits your ${at} (${bv} in sits in this garment’s ${windowStr} window).`);
+    }
   } else {
     notes.push(chartName
       ? `No size is given for ${chartName}: ${sizeMissingReason}`
@@ -2051,12 +2036,18 @@ async function finishScan(req, res, { frames, rejected, unreadable, failures, cl
     },
     size: size?.sizeKey || null,
     sizeChart: size?.row || null,
-    // True when the store's deciding column is a garment measured flat, so the
-    // row beside the size is a half-circumference rather than a body girth.
+    // True when the deciding column is a flat (half-width) garment measurement.
+    // The row values are half-circumferences; multiply by 2 for the garment girth.
     sizeChartFlat: Boolean(size?.flat),
+    // The body circumference window this size was matched against, e.g. { lo: 38, hi: 42 }.
+    // "Your chest (40 in) fits this size, which is cut for 38 – 42 in."
+    sizeBodyWindow: size?.bodyWindow || null,
+    // Garment circumference of the matched size (flat × 2 or round as-is).
+    sizeGarmentCircumference: size?.circumference || null,
+    // Fit style the chart was matched under (fitted / regular / relaxed / oversized).
+    sizeFitStyle: size?.fitStyle || null,
     sizeBasis: size ? sizeBasis : null,
-    // Whose chart answered: 'store' (the one carried in the link, which is the
-    // garment actually being bought) or 'reference' (ours). null = no size.
+    // Whose chart answered: 'store' (carried in the link). null = no size.
     sizeSource,
     // The garment the store named, so the shopper is told what the size is for.
     sizeName: sizeSource === 'store' ? (chartName || null) : null,

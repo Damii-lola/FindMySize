@@ -674,23 +674,41 @@ function renderVerdict(data) {
     ? `Worked out from ${from} against this garment's own chart, not a standard one.`
     : `This clip did not show a straight-on front view with your arms clear of your sides, so there was nothing to work a size out from${name ? ` for ${name}` : ''}.`;
 
-  // The row that was handed to them, in the store's own numbers and words. The
-  // extra columns a store added are the reason this line exists: a shoulder or a
-  // body length it prints belongs beside the size, whether or not it was scored.
+  // Show the shopper their body window for the deciding column plus any extra
+  // informational columns the brand printed (body length, sleeve length, etc.).
+  // A flat garment cell is a half-width; we show the body window, not the raw
+  // half-number, so '22.75 in' becomes 'fits chest 36.6 – 40.6 in'.
   if (verdictRow) {
+    const parts = [];
+
+    // 1. Body window from the server result, if present.
+    if (data.sizeBodyWindow && Number.isFinite(data.sizeBodyWindow.lo)) {
+      const { lo, hi } = data.sizeBodyWindow;
+      const unit = garment.unit === 'cm' ? 'cm' : 'in';
+      const toUnit = (v) => unit === 'cm' ? (v * 2.54).toFixed(0) : (Math.round(v * 10) / 10);
+      const decidingCol = (Array.isArray(garment.columns) ? garment.columns : [])
+        .find((col) => col?.measure && col.measure === data.sizeBasis
+          || (col?.measure === 'chest' && (data.sizeBasis === 'male' || data.sizeBasis === 'female' || !data.sizeBasis)));
+      const colLabel = decidingCol?.label || 'chest';
+      parts.push(`fits ${colLabel.toLowerCase()} ${toUnit(lo)}–${toUnit(hi)} ${unit}`);
+    }
+
+    // 2. Extra (informational) columns the brand printed but we cannot measure.
     const typed = size && Array.isArray(garment.rows)
       ? garment.rows.find((r) => String(r?.key) === String(size))
       : null;
-    const stored = data.sizeChart || {};
-    const unit = typed ? (garment.unit === 'cm' ? 'cm' : 'in') : 'in';
-    const printed = (Array.isArray(garment.columns) ? garment.columns : [])
-      .map((column) => ({
-        label: column?.label || '',
-        value: typed && Number.isFinite(Number(typed[column.id])) ? typed[column.id] : stored[column?.id],
+    const unit = garment.unit === 'cm' ? 'cm' : 'in';
+    const extra = (Array.isArray(garment.columns) ? garment.columns : [])
+      .filter((col) => col && col.label && !col.measure)  // informational only
+      .map((col) => ({
+        label: col.label,
+        value: typed && Number.isFinite(Number(typed[col.id])) ? typed[col.id] : null,
       }))
-      .filter((c) => c.label && Number.isFinite(Number(c.value)) && String(c.value ?? '') !== '');
-    verdictRow.hidden = !printed.length;
-    verdictRow.textContent = printed.map((c) => `${c.label} ${Number(c.value)} ${unit}`).join(' \u00b7 ');
+      .filter((x) => x.value !== null);
+    for (const x of extra) parts.push(`${x.label} ${x.value} ${unit}`);
+
+    verdictRow.hidden = !parts.length;
+    verdictRow.textContent = parts.join(' \u00b7 ');
   }
 }
 

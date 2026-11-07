@@ -248,10 +248,10 @@
 
           <p class="hint">
             The size names are yours &mdash; <em>XS&hellip;XXL</em>,
-            <em>38/40/42</em>, <em>Small</em>. Enter the <strong>body</strong>
-            measurements that fit each size (the chest that wears it, not the
-            garment's flat measurement). The scanner measures the body.
-            Use a dash for a range: <em>34-36</em> means this size fits anyone from 34 to 36.
+            <em>38/40/42</em>, <em>Small</em>. Enter the numbers exactly as they appear on the
+            brand's product page &mdash; measured flat across the garment (pit-to-pit, half-chest).
+            The scanner reads the shopper's body; the engine converts garment numbers to a body window.
+            Use a dash for a range: <em>34-36</em>.
           </p>
 
           <div class="field-grid">
@@ -277,6 +277,15 @@
               <select id="chart-unit">
                 <option value="in">Inches</option>
                 <option value="cm">Centimetres</option>
+              </select>
+            </label>
+            <label class="field">
+              <span class="field-label">Fit style</span>
+              <select id="chart-fit-style" title="How close the garment is cut to the body">
+                <option value="fitted">Fitted &mdash; snug, little room</option>
+                <option value="regular" selected>Regular &mdash; classic, everyday</option>
+                <option value="relaxed">Relaxed &mdash; roomy, loose</option>
+                <option value="oversized">Oversized &mdash; boxy, oversized on purpose</option>
               </select>
             </label>
           </div>

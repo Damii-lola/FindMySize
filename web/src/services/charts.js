@@ -134,8 +134,8 @@ export async function listCharts() {
  * moment the row lands; a collision (essentially impossible, but a unique index
  * is a unique index) is answered by asking for another code once.
  */
-export async function saveChart({ id, name, sex, unit, columns, rows, popup }) {
-  const body = { name: name.trim().slice(0, 60), sex, unit, columns, rows, popup: popup || {} };
+export async function saveChart({ id, name, sex, unit, fitStyle, columns, rows, popup }) {
+  const body = { name: name.trim().slice(0, 60), sex, unit, fitStyle: fitStyle || 'regular', columns, rows, popup: popup || {} };
   if (id) body.id = id;
 
   // Signed-in users: save via server API so charts are tied to the user and sync across devices.
@@ -225,6 +225,7 @@ export async function chartByCode(code) {
         name: typeof row.name === 'string' ? row.name : '',
         sex: row.sex === 'female' || row.sex === 'male' ? row.sex : 'unisex',
         unit: row.unit === 'cm' ? 'cm' : 'in',
+        fitStyle: ['fitted','regular','relaxed','oversized'].includes(row.fitStyle) ? row.fitStyle : 'regular',
         columns: Array.isArray(row.columns) ? row.columns : [],
         rows: Array.isArray(row.rows) ? row.rows : [],
         popup: row.popup && typeof row.popup === 'object' && !Array.isArray(row.popup) ? row.popup : {},

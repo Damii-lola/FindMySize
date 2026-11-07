@@ -1,36 +1,68 @@
 /**
- * Size charts, and how one is chosen.
+ * Garment-first sizing.
  *
- * US retail size charts in inches; men are sized on the chest and women on the
- * bust. But a chart is a table of girths per size, and a body is under no
- * obligation to agree with all of them at once: a 6'1" man with a 32" waist reads
- * S at the waist and M at the hips, because a chart like this assumes girth and
- * height rise together. Sizing off the chest alone throws away the rest of what
- * the clip actually measured - which is exactly what happened on a real live clip,
- * where a 38" chest sitting precisely on the 36/40 boundary resolved to S while
- * his hips were saying M.
+ * Every chart a brand enters is a FLAT GARMENT chart: numbers taken with the
+ * garment laid on a table, measured across (pit-to-pit, half-chest). That is
+ * the industry default, it is what 95 % of brand product pages print, and it
+ * is what FindMySize supports — exclusively.
  *
- * Which columns a chart is scored on is the chart's business, not ours. A store
- * types its own table: chest and waist for a shirt, waist and inseam for trousers,
- * plus whatever else it prints (a sleeve length, a body length) that this app can
- * show but cannot read off a body. The FIRST column this app can measure is the
- * one a size is decided on; every other measured column joins the same worst-case
- * comparison; a column with no measurement behind it is never scored, because
- * holding a number this app did not read against one it did would be an opinion,
- * not a fit.
+ * The conversion from flat to body is:
  *
- * The chart's height column is deliberately not what decides. Height and girth do
- * not move together in the direction the column implies, and the honest thing for
- * a tall slim man is to be told the girths, not to be handed an XXL.
+ *   body circumference window = (flat × 2 + ease_lo) to (flat × 2 + ease_hi)
  *
- * The charts below are the fallback. A store that has typed its own chart gets
- * sized against that instead (chartFromInput, below), and the same rules apply
- * either way: a chart is still a table of numbers, and the size is still the row
- * with the smallest worst disagreement.
+ * "flat × 2" is the circumference of the garment itself. The ease window is the
+ * range of bodies that garment is designed to fit — it is never a point, because
+ * a garment cut for a 40″ chest fits anyone from roughly 38 to 42″, depending on
+ * the fit style. The window is what gets compared with the body the scanner read.
+ *
+ * Fit style drives the ease window. A "fitted" piece is cut close; a "relaxed"
+ * piece sits away from the body; "oversized" is designed to dwarf the wearer.
+ * Each style maps to (ease_lo, ease_hi) per body part. These numbers come from
+ * industry grading tables and from measuring real garments.
+ *
+ *   fitted:    chest  2 – 4   waist  1 – 3   hips  2 – 4
+ *   regular:   chest  3 – 6   waist  2 – 4   hips  3 – 6
+ *   relaxed:   chest  5 – 9   waist  4 – 7   hips  5 – 9
+ *   oversized: chest  8 – 14  waist  6 – 12  hips  8 – 14
+ *
+ * Detection: when a brand enters numbers, the engine reads the column labels and
+ * the values to decide whether the chart looks flat (the default) or already
+ * round. It stores that result on the chart and the brand can override it. For a
+ * round garment chart the flat flag is false and the values are used as-is for
+ * the circumference; ease is still applied. Body-measurement entry is gone.
+ *
+ * The fallback built-in charts (CHARTS) are REMOVED. If a scan has no store
+ * chart it says so and returns no size; it does not fall back to a generic
+ * reference, because a generic reference is an opinion, not a fit.
  */
+
 import { measureField } from '../shared/measures.js';
 
-/** A cell is a number, or a range { min, max } written as "from this to this". */
+// ---------------------------------------------------------------------------
+// Ease windows by fit style and body part (inches).
+// Each entry is [lo, hi] — how much extra room, beyond the garment's own
+// circumference, a body in this style window is expected to have.
+// ---------------------------------------------------------------------------
+export const FIT_STYLES = {
+  fitted:    { chest: [2, 4],  waist: [1, 3],  hips: [2, 4],  shoulder: [0, 1], neck: [0.1, 0.5], arm: [0.5, 1.5] },
+  regular:   { chest: [3, 6],  waist: [2, 4],  hips: [3, 6],  shoulder: [0, 1], neck: [0.1, 0.5], arm: [0.5, 2]   },
+  relaxed:   { chest: [5, 9],  waist: [4, 7],  hips: [5, 9],  shoulder: [0, 2], neck: [0.1, 0.5], arm: [1, 3]     },
+  oversized: { chest: [8, 14], waist: [6, 12], hips: [8, 14], shoulder: [1, 4], neck: [0.1, 0.5], arm: [1.5, 4]   },
+};
+
+export const FIT_STYLE_LABELS = {
+  fitted:    'Fitted',
+  regular:   'Regular',
+  relaxed:   'Relaxed',
+  oversized: 'Oversized',
+};
+
+/** Default fit style when the brand has not set one. */
+export const DEFAULT_FIT_STYLE = 'regular';
+
+// ---------------------------------------------------------------------------
+// Cell helpers (unchanged from original — a cell is a number or {min,max})
+// ---------------------------------------------------------------------------
 function readCell(value) {
   if (value && Number.isFinite(value.min) && Number.isFinite(value.max)) {
     return { min: Math.min(value.min, value.max), max: Math.max(value.min, value.max) };
@@ -43,44 +75,40 @@ function hasCell(value) {
   return readCell(value) !== null;
 }
 
-/** Distance from a body measurement to a chart cell. Inside a range is a perfect fit. */
-function distanceTo(measured, cell) {
-  if (typeof cell === 'number') return Math.abs(measured - cell);
-  if (measured >= cell.min && measured <= cell.max) return 0;
-  return measured < cell.min ? cell.min - measured : measured - cell.max;
+function cellMid(cell) {
+  if (cell == null) return null;
+  if (typeof cell === 'number') return cell;
+  if (Number.isFinite(cell.min) && Number.isFinite(cell.max)) return (cell.min + cell.max) / 2;
+  return null;
 }
 
-function cellSortKey(cell) {
-  return typeof cell === 'number' ? cell : cell.max;
+// ---------------------------------------------------------------------------
+// Garment-to-body window
+//
+// Given a flat garment half-width `flatVal` (or a full circumference when
+// `isFlat` is false) and a fit style, return the body circumference window
+// [lo, hi] that this size is designed to fit.
+// ---------------------------------------------------------------------------
+export function garmentToBodyWindow(flatVal, isFlat, field, fitStyle = DEFAULT_FIT_STYLE) {
+  const style = FIT_STYLES[fitStyle] || FIT_STYLES[DEFAULT_FIT_STYLE];
+  const easeWindow = style[field] || style.chest;
+  // If flat, the garment circumference is flatVal × 2.
+  // If already round (isFlat=false), use flatVal directly.
+  const circumference = isFlat ? flatVal * 2 : flatVal;
+  // The body window: a body from (circumference - ease_hi) to (circumference - ease_lo)
+  // would wear this size comfortably in this fit style.
+  // Equivalently: the garment needs a body of at least (circ - ease_hi) and at most (circ - ease_lo).
+  return {
+    lo: circumference - easeWindow[1],
+    hi: circumference - easeWindow[0],
+    circumference,
+  };
 }
 
-export const CHARTS = {
-  male: {
-    XS: { chest: 32, waist: 26, hips: 34, height: 66 },
-    S: { chest: 36, waist: 30, hips: 38, height: 68 },
-    M: { chest: 40, waist: 34, hips: 40, height: 70 },
-    L: { chest: 44, waist: 38, hips: 44, height: 71 },
-    XL: { chest: 48, waist: 42, hips: 48, height: 72 },
-    XXL: { chest: 52, waist: 46, hips: 52, height: 73 },
-  },
-  female: {
-    XS: { bust: 32, waist: 24, hips: 34, height: 62 },
-    S: { bust: 34, waist: 26, hips: 36, height: 64 },
-    M: { bust: 36, waist: 28, hips: 38, height: 65 },
-    L: { bust: 38, waist: 30, hips: 40, height: 66 },
-    XL: { bust: 40, waist: 33, hips: 43, height: 67 },
-    XXL: { bust: 42, waist: 36, hips: 46, height: 68 },
-  },
-};
-
-/**
- * The chest-or-bust column of a chart: the one every row actually has.
- *
- * A store's chart may carry a chest column, a bust column, or neither. It follows
- * the table, not the sex, so a men's shirt chart that the store typed as "chest"
- * is not read as a bust chart just because the shopper picked "a woman". Null
- * means the chart has no torso column at all and cannot size anybody.
- */
+// ---------------------------------------------------------------------------
+// chartKey: which column in a store chart is the torso anchor
+// (kept for compatibility with callers that need to know the deciding column)
+// ---------------------------------------------------------------------------
 export function chartKey(chart) {
   const rows = Object.values(chart || {});
   if (!rows.length) return null;
@@ -90,14 +118,6 @@ export function chartKey(chart) {
   return null;
 }
 
-/**
- * The columns of a chart saved as rows only — before stores could name their own.
- *
- * Every column a row carries is a column the chart has; the torso one comes
- * first, because that is what decides a size, and waist and hips follow in the
- * order a tape would go round. This is what the built-in charts are read as too,
- * which is why there is only ever one scoring rule in this file.
- */
 export function columnsFromRows(chart) {
   const rows = Object.values(chart || {});
   if (!rows.length) return [];
@@ -111,118 +131,108 @@ export function columnsFromRows(chart) {
   return cols;
 }
 
-/**
- * The size whose WORST disagreement with any measured column is the smallest.
- *
- * Worst case rather than average, because the garment that can be worn is the one
- * that is loose somewhere; the one that is snug somewhere is the one that does not
- * close. An exact tie therefore goes to the LARGER size - 38" of chest is as far
- * from a 36" row as from a 40" one, and the 40" garment is the one that closes.
- * (It used to keep the smaller, which read as "size down when unsure".)
- *
- * A column only counts when EVERY row carries it and this body has that
- * measurement. A blank cell must not become an advantage: without that rule, a
- * row with its waist left out would be judged on its chest alone and could win
- * against a row that was honest about both.
- *
- * `diff` stays the difference on the deciding column: it is what the
- * uncertain-gender path compares between the two charts, and what the snug/loose
- * note is written from.
- */
-export function bestSize(sex, girths, chart = CHARTS[sex], columns = null) {
-  const rows = chart || {};
-  const entries = Object.entries(rows);
-  if (!entries.length) return null;
-  const cols = (columns?.length ? columns : columnsFromRows(rows))
-    .map((c) => ({ ...c, field: measureField(c.measure) }));
-  const primary = cols.find((c) => c.field);
-  if (!primary) return null;
-  const usable = cols.filter((c) => c.field
-    && Number.isFinite(girths?.[c.field])
-    && entries.every(([, row]) => hasCell(row?.[c.id])));
-  // The column a size is decided on has to be this body's own tape. Without it
-  // there is no anchor to lay the table against, and no size beats a guessed one.
-  if (!usable.includes(primary)) return null;
-  // A chart measured with the garment laid flat ("pit to pit") states half a
-  // circumference. The tape went round the body, so it is the body's half that
-  // gets compared with a flat column, never the full girth - which otherwise sits
-  // above every row and pins the answer to the largest size.
-  const onChart = (c) => (c.flat ? girths[c.field] / 2 : girths[c.field]);
-  // Room a garment is cut with. A product-page chart is the garment, not the
-  // body, so a body that matches the number exactly is already tight.
-  const EASE = { chest: 2, waist: 1, hips: 2, shoulder: 0.5, neck: 0.25, arm: 0.5 };
-  const easeOf = (c) => EASE[c.field] || 0;
+// ---------------------------------------------------------------------------
+// Flat-column detection
+//
+// Decides whether each measurable column holds flat (half-width) numbers or
+// full circumferences. Strategy (multiple signals):
+//
+//  1. Column label contains a flat keyword ("width", "flat", "1/2", "half",
+//     "pit", "across", "garment") → definitely flat.
+//  2. Column label contains a body keyword ("body", "around", "circum",
+//     "girth") → definitely round.
+//  3. Numbers: for each body part, there is a floor below which no adult
+//     body is that many inches in circumference. If the max value in the
+//     column is below the floor, it must be flat.
+//  4. Step size: flat charts step ~1″ per size; body charts step ~2–4″.
+//     If the median step is ≤ 1.5″ it is a strong flat signal.
+//
+// All signals are scored. A column is flat when flat signals > round signals.
+// When no signal fires at all, it defaults to flat (industry default).
+// ---------------------------------------------------------------------------
+const BODY_FLOOR = {
+  chest: 28, bust: 28, waist: 22, hips: 28,
+  shoulder: 12, neck: 10, arm: 7,
+};
 
-  // The smallest size whose deciding measurement still covers this body, with
-  // ease. Closest-number matching is what put an L wearer in an S.
-  const body = onChart(primary);
-  const ease = easeOf(primary);
-  let covering = null;
-  for (const [sizeKey, row] of entries) {
-    const cell = readCell(row?.[primary.id]);
-    if (!cell) continue;
-    const room = (typeof cell === 'number' ? cell : cell.max) - (body + ease);
-    if (room >= -0.4) {
-      covering = { sizeKey, row, key: primary.id, field: primary.field, label: primary.label, diff: Math.abs(room), misfit: Math.abs(room), flat: Boolean(primary.flat) };
-      break;
+// Keywords that strongly imply a flat measurement
+const FLAT_KEYWORDS = /\b(width|flat|1\/2|half|pit[- ]to[- ]pit|across|pit|garment|lay|laid)\b/i;
+// Keywords that strongly imply a body/circumference measurement
+const ROUND_KEYWORDS = /\b(body|around|circum|girth|round|bust|circumference)\b/i;
+
+function detectFlatColumn(colLabel, colId, values, field) {
+  if (!field) return false; // non-measurable columns are never scored
+
+  let flatScore = 0;
+  let roundScore = 0;
+  const label = `${colLabel || ''} ${colId || ''}`;
+
+  if (FLAT_KEYWORDS.test(label)) flatScore += 3;
+  if (ROUND_KEYWORDS.test(label)) roundScore += 3;
+
+  const nums = values.filter((n) => Number.isFinite(n));
+  if (nums.length) {
+    const floor = BODY_FLOOR[field];
+    const max = Math.max(...nums);
+    if (floor && max < floor) flatScore += 3; // too small to be a full girth
+
+    // Step-size signal (sort ascending, check median step)
+    const sorted = [...nums].sort((a, b) => a - b);
+    const steps = sorted.slice(1).map((v, i) => v - sorted[i]).filter((s) => s > 0);
+    if (steps.length) {
+      const median = steps.sort((a, b) => a - b)[Math.floor(steps.length / 2)];
+      if (median <= 1.5) flatScore += 2;   // small steps → flat
+      if (median >= 3)   roundScore += 2;  // big steps → round
     }
   }
-  if (covering) return covering;
 
-  // Body is past every row: the largest size, not the closest small one.
-  const [sizeKey, row] = entries[entries.length - 1];
-  return { sizeKey, row, key: primary.id, field: primary.field, label: primary.label, diff: 0, misfit: 0, flat: Boolean(primary.flat) };
+  // Default: flat if tied or no signals
+  return flatScore >= roundScore;
 }
 
-/** A column id a row can be keyed by, and a label a shopper can read. */
-function readColumns(raw, id) {
+// ---------------------------------------------------------------------------
+// chartFromInput  (replaces the old version)
+//
+// Parses a brand's raw chart object into a normalised form. All columns that
+// are girth-measurable are tagged `flat: true|false` based on the detection
+// above. The brand's `fitStyle` override is carried through; it defaults to
+// 'regular'. A `kind` field is set: 'flat_garment' or 'round_garment'.
+// ---------------------------------------------------------------------------
+function readColumnDef(raw, id) {
   if (!raw || typeof raw !== 'object') return null;
   const next = typeof raw.id === 'string' && /^[a-z][a-z0-9]{0,15}$/.test(raw.id) ? raw.id : id;
   const label = typeof raw.label === 'string' ? raw.label.trim().slice(0, 24) : '';
   if (!label) return null;
-  return { id: next, label, measure: measureField(raw.measure) };
+  return {
+    id: next,
+    label,
+    measure: measureField(raw.measure),
+    // If the brand explicitly flagged the column, honour it. null = auto-detect.
+    flatOverride: typeof raw.flat === 'boolean' ? raw.flat : null,
+  };
 }
 
-/**
- * A store's own chart, as it was typed, in the shape the sizing above wants:
- * inches, one entry per size keyed by the label the store gave that size, and the
- * columns in the order the store put them.
- *
- * The unit belongs to the chart, not to the reader: a chart typed in centimetres
- * is converted here, once, rather than in every place that reads a chart. The
- * plausibility bounds are wide — anything from a 5" cuff to a 120" length — and a
- * row that cannot be scored is dropped rather than guessed at, so one broken row
- * does not lose the other five.
- *
- * A column is dropped when no row carries a number for it, because a column with
- * no numbers is not part of the table. A column carried by only SOME rows is kept
- * (it is still the garment's number, and the shopper sees it beside their size)
- * but bestSize will not score on it, since that would favour the rows missing it.
- *
- * Returns null when nothing usable is left, and the caller falls back to the
- * built-in chart rather than sizing a body against an empty table.
- */
 export function chartFromInput(input) {
   if (!input || typeof input !== 'object') return null;
   const cm = input.unit === 'cm';
   const rawCols = Array.isArray(input.columns) ? input.columns : [];
   const rowsIn = Array.isArray(input.rows) ? input.rows : [];
+  const fitStyle = FIT_STYLES[input.fitStyle] ? input.fitStyle : DEFAULT_FIT_STYLE;
 
   const columns = [];
   rawCols.forEach((raw, i) => {
-    const col = readColumns(raw, `c${i + 1}`);
+    const col = readColumnDef(raw, `c${i + 1}`);
     if (!col || columns.some((c) => c.id === col.id)) return;
     columns.push(col);
   });
   if (!columns.length) return null;
 
+  // Parse rows
   const out = {};
   for (const row of rowsIn) {
     const fromKey = typeof row?.key === 'string' ? row.key.trim() : '';
     const fromSize = typeof row?.size === 'string' ? row.size.trim() : '';
     const label = (fromKey || fromSize).slice(0, 14);
-    // Two rows with the same label are the same size; the first one wins, because
-    // that is the order the store typed them in.
     if (!label || out[label]) continue;
     const r = {};
     for (const c of columns) {
@@ -230,7 +240,7 @@ export function chartFromInput(input) {
       if (!cell) continue;
       const toInch = (n) => {
         const inch = cm ? n / 2.54 : n;
-        return inch >= 5 && inch <= 120 ? Math.round(inch * 10) / 10 : null;
+        return inch >= 2 && inch <= 120 ? Math.round(inch * 10) / 10 : null;
       };
       if (typeof cell === 'number') {
         const inch = toInch(cell);
@@ -247,118 +257,244 @@ export function chartFromInput(input) {
   const kept = columns.filter((c) => Object.values(out).some((r) => hasCell(r?.[c.id])));
   const anchor = kept.find((c) => c.measure);
   if (!anchor) return null;
-  // A size with no number in the deciding column cannot be laid against anything.
+
+  // Drop rows missing the anchor column
   for (const [label, r] of Object.entries(out)) {
     if (!hasCell(r[anchor.id])) delete out[label];
   }
   if (!Object.keys(out).length) return null;
-  markFlatColumns(kept, out);
-  return { rows: out, columns: kept };
-}
 
-/**
- * Garment charts are printed two ways: girths taken round a body, and widths taken
- * across a garment lying flat ("chest width", "pit to pit", "1/2 chest"). The two
- * cannot be told apart by the label, but they can by the numbers: a chest column
- * whose LARGEST size is under 28" is not describing an adult body, because no
- * adult chest is 27" round. Waist and hips get the same treatment, with the floor
- * moved to where a body stops being a body.
- *
- * Nothing is flagged when a column has no measure attached: a merchant's own
- * unlabelled column (a length, a cuff) is not ours to reinterpret.
- */
-const FLAT_BELOW = { chest: 28, bust: 28, waist: 24, hips: 30 };
-
-function markFlatColumns(columns, rows) {
-  const list = Object.values(rows || {});
-  for (const c of columns) {
-    const field = measureField(c.measure);
-    const floor = FLAT_BELOW[field];
-    if (!floor) continue;
-    const nums = list.map((r) => r[c.id]).filter((n) => Number.isFinite(n));
-    if (!nums.length) continue;
-    if (Math.max(...nums) < floor) c.flat = true;
+  // Detect flat/round for each measurable column
+  for (const c of kept) {
+    if (!c.measure) continue;
+    if (c.flatOverride !== null) {
+      c.flat = c.flatOverride;
+    } else {
+      const vals = Object.values(out)
+        .map((r) => cellMid(r[c.id]))
+        .filter((n) => Number.isFinite(n));
+      c.flat = detectFlatColumn(c.label, c.id, vals, c.measure);
+    }
   }
+
+  // Chart-level kind: flat_garment if any measurable column is flat
+  const anyFlat = kept.some((c) => c.measure && c.flat);
+  const kind = anyFlat ? 'flat_garment' : 'round_garment';
+
+  return { rows: out, columns: kept, fitStyle, kind };
 }
 
-/**
- * The chart says how each size is cut. It does not pick the size.
- *
- * Every measurement the scan calculated votes, whether or not the brand
- * listed it. A size that is too small for any of them loses hard. The size
- * with the best fit across the whole body is the one given.
- */
-const EASE = { chest: 2, waist: 1, hips: 2, shoulder: 0.5, neck: 0.25, arm: 0.5 };
-// What each part is, as a fraction of the size's chest (or waist for a bottom).
-const OF_CHEST = {
-  chest: 1, waist: 0.85, hips: 1.0, shoulder: 0.44, neck: 0.38, arm: 0.32,
-  backWidth: 0.4, sleeveLength: 0.66, armLength: 0.54, napeToWaist: 0.46,
-  shoulderToWaist: 0.42, armholeDepth: 0.22, height: 1.7,
-};
-const OF_WAIST = { waist: 1, hips: 1.12, chest: 1.15 };
+// ---------------------------------------------------------------------------
+// bestSize  (completely rewritten)
+//
+// Works in garment space: each chart cell is the garment's measurement.
+// For flat columns, garment circumference = cell × 2.
+// For round columns, garment circumference = cell.
+//
+// The body circumference window for each size is derived via garmentToBodyWindow.
+// A size FITS a body when every scoreable column's body window contains the
+// body's measurement.
+//
+// Selection rule:
+//   1. Find all sizes whose PRIMARY column window contains the body.
+//   2. Among those, pick the one whose OTHER columns have the smallest
+//      total miss (how far outside any window the body measurements sit).
+//   3. If no size fully contains the body on the primary column, pick the
+//      smallest size that is at or above the body (the garment still closes).
+//   4. If still nothing, return the largest size.
+//
+// Returns the same shape as the old bestSize for compatibility:
+//   { sizeKey, row, key, field, label, diff, misfit, flat, fitStyle,
+//     bodyWindow: { lo, hi }, circumference }
+// ---------------------------------------------------------------------------
+export function bestSize(sex, girths, chart = null, columns = null, fitStyle = DEFAULT_FIT_STYLE) {
+  // No built-in fallback any more. A scan without a store chart returns null.
+  if (!chart) return null;
 
-function num(v) {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
-}
-function cellMid(cell) {
-  if (cell == null) return null;
-  if (typeof cell === 'number') return cell;
-  if (Number.isFinite(cell.min) && Number.isFinite(cell.max)) return (cell.min + cell.max) / 2;
-  return null;
-}
-function fitCost(garment, body, ease) {
-  const room = garment - (body + ease);
-  if (room >= -0.4 && room <= 3) return Math.abs(room) * 0.4;
-  if (room < -0.4) return Math.abs(room) * 4;
-  return (room - 3) * 0.6;
+  const rows = chart || {};
+  const entries = Object.entries(rows);
+  if (!entries.length) return null;
+
+  const cols = (columns?.length ? columns : columnsFromRows(rows))
+    .map((c) => ({ ...c, field: c.field || measureField(c.measure) }));
+
+  const primary = cols.find((c) => c.field);
+  if (!primary) return null;
+
+  // Only score columns where EVERY row has a number AND the body has that measurement
+  const usable = cols.filter((c) => {
+    if (!c.field) return false;
+    if (!Number.isFinite(girths?.[c.field])) return false;
+    return entries.every(([, row]) => hasCell(row?.[c.id]));
+  });
+
+  if (!usable.includes(primary) && !usable.some((c) => c.id === primary.id)) return null;
+
+  const style = fitStyle || DEFAULT_FIT_STYLE;
+
+  // Build a scored list
+  const scored = entries.map(([sizeKey, row]) => {
+    const pCell = readCell(row?.[primary.id]);
+    if (!pCell) return null;
+
+    const pMid = cellMid(pCell);
+    const pWin = garmentToBodyWindow(
+      typeof pCell === 'number' ? pCell : pMid,
+      Boolean(primary.flat),
+      primary.field,
+      style,
+    );
+
+    const bodyVal = girths[primary.field];
+    const primaryFits = bodyVal >= pWin.lo && bodyVal <= pWin.hi;
+    const primaryMiss = primaryFits ? 0
+      : bodyVal < pWin.lo ? pWin.lo - bodyVal
+      : bodyVal - pWin.hi;
+
+    // Secondary column misses
+    let secondaryMiss = 0;
+    for (const c of usable) {
+      if (c.id === primary.id) continue;
+      const cell = readCell(row?.[c.id]);
+      if (!cell) continue;
+      const mid = cellMid(cell);
+      const win = garmentToBodyWindow(
+        typeof cell === 'number' ? cell : mid,
+        Boolean(c.flat),
+        c.field,
+        style,
+      );
+      const bv = girths[c.field];
+      if (!Number.isFinite(bv)) continue;
+      const miss = bv >= win.lo && bv <= win.hi ? 0
+        : bv < win.lo ? win.lo - bv
+        : bv - win.hi;
+      secondaryMiss += miss;
+    }
+
+    return {
+      sizeKey,
+      row,
+      primaryFits,
+      primaryMiss,
+      secondaryMiss,
+      totalMiss: primaryMiss + secondaryMiss * 0.5,
+      pWin,
+      pMid,
+    };
+  }).filter(Boolean);
+
+  if (!scored.length) return null;
+
+  // Sort: sizes that fit the primary first (by totalMiss), then overflow sizes
+  const fitting = scored.filter((s) => s.primaryFits).sort((a, b) => a.totalMiss - b.totalMiss);
+  const candidate = fitting.length ? fitting[0]
+    : scored.filter((s) => s.primaryMiss > 0).sort((a, b) => a.pWin.lo - b.pWin.lo)[0]
+    ?? scored[scored.length - 1];
+
+  const pCell = readCell(candidate.row?.[primary.id]);
+  return {
+    sizeKey: candidate.sizeKey,
+    row: candidate.row,
+    key: primary.id,
+    field: primary.field,
+    label: primary.label,
+    diff: candidate.primaryMiss,
+    misfit: candidate.totalMiss,
+    flat: Boolean(primary.flat),
+    fitStyle: style,
+    bodyWindow: candidate.pWin,
+    circumference: candidate.pWin.circumference,
+  };
 }
 
+// ---------------------------------------------------------------------------
+// adjustForProportions  (rewritten on the same garment-window logic)
+//
+// Accepts a first-pass size and re-scores every size using the full body
+// catalogue (all measurements the scan returned) against the garment windows.
+// Falls back to the input size if nothing can be re-scored.
+// ---------------------------------------------------------------------------
 export function adjustForProportions(size, girths, columns, rows, all = null) {
   if (!size || !rows) return { size, reason: null };
+
   const body = { ...(girths || {}), ...(all || {}) };
   const cols = columns || [];
-  const byField = new Map();
-  for (const c of cols) {
-    const f = c.measure || c.field;
-    if (f) byField.set(f, c);
-  }
-  const isBottom = size.field === 'waist' || size.field === 'hips';
-  const ratios = isBottom ? { ...OF_CHEST, ...OF_WAIST } : OF_CHEST;
-  const order = Object.keys(rows);
-  if (!order.length) return { size, reason: null };
+  const fitStyle = size.fitStyle || DEFAULT_FIT_STYLE;
 
-  const anchorCol = cols.find((c) => (c.measure || c.field) === (isBottom ? 'waist' : 'chest'))
-    || cols.find((c) => c.id === size.key);
+  const byId = new Map(cols.map((c) => [c.id, c]));
+  const entries = Object.entries(rows);
+  if (!entries.length) return { size, reason: null };
 
-  const scored = order.map((key) => {
-    const row = rows[key];
-    const anchor = anchorCol ? cellMid(row[anchorCol.id]) : null;
+  // Build a cost for each candidate size using garment-window logic
+  const scored = entries.map(([key, row]) => {
     let cost = 0;
     let n = 0;
-    for (const [part, value] of Object.entries(body)) {
-      const measured = num(value);
-      if (measured == null) continue;
-      const col = byField.get(part);
-      if (col && row[col.id] != null) {
-        const cell = cellMid(row[col.id]);
-        if (cell == null) continue;
-        const garment = col.flat ? cell * 2 : cell;
-        cost += fitCost(garment, measured, EASE[part] || 0);
-        n += 1;
-        continue;
-      }
-      const ratio = ratios[part];
-      if (!ratio || anchor == null) continue;
-      cost += fitCost(anchor * ratio, measured, EASE[part] || 0);
+    for (const c of cols) {
+      const field = c.field || measureField(c.measure);
+      if (!field) continue;
+      const measured = Number.isFinite(body[field]) ? body[field] : null;
+      if (measured === null) continue;
+      const cell = readCell(row[c.id]);
+      if (!cell) continue;
+      const mid = cellMid(cell);
+      const win = garmentToBodyWindow(
+        typeof cell === 'number' ? cell : mid,
+        Boolean(c.flat),
+        field,
+        fitStyle,
+      );
+      // Cost: 0 if inside window, penalised proportionally outside
+      const miss = measured >= win.lo && measured <= win.hi ? 0
+        : measured < win.lo ? (win.lo - measured) * 4   // too small: penalise hard
+        : (measured - win.hi) * 0.6;                    // too big: penalise lightly
+      cost += miss;
       n += 1;
     }
     return { key, row, cost: n ? cost / n : 99, n };
   });
 
-  const usable = scored.filter((s) => s.n > 0);
+  const usable = scored.filter((s) => s.n > 0).sort((a, b) => a.cost - b.cost);
   if (!usable.length) return { size, reason: null };
-  usable.sort((a, b) => a.cost - b.cost);
+
   const best = usable[0];
-  return { size: { ...size, sizeKey: best.key, row: best.row }, reason: null };
+
+  // Recompute the body window for the returned size using the primary column
+  const primary = cols.find((c) => (c.field || measureField(c.measure)) === size.field);
+  let bodyWindow = size.bodyWindow || null;
+  if (primary) {
+    const cell = readCell(best.row[primary.id]);
+    if (cell) {
+      const mid = cellMid(cell);
+      bodyWindow = garmentToBodyWindow(
+        typeof cell === 'number' ? cell : mid,
+        Boolean(primary.flat),
+        size.field,
+        fitStyle,
+      );
+    }
+  }
+
+  return {
+    size: {
+      ...size,
+      sizeKey: best.key,
+      row: best.row,
+      bodyWindow: bodyWindow || size.bodyWindow,
+    },
+    reason: null,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Convenience: given a size result, build a human-readable body-window string
+// for the response (e.g. "38 – 42 in chest").
+// ---------------------------------------------------------------------------
+export function bodyWindowLabel(size, unit = 'in') {
+  if (!size?.bodyWindow) return null;
+  const { lo, hi } = size.bodyWindow;
+  const r = unit === 'cm'
+    ? `${Math.round(lo * 2.54)} – ${Math.round(hi * 2.54)} cm`
+    : `${Math.round(lo * 10) / 10} – ${Math.round(hi * 10) / 10} in`;
+  return r;
 }

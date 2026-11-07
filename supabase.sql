@@ -82,3 +82,9 @@ alter table public.size_charts add column if not exists popup jsonb not null def
 alter table public.size_charts alter column user_id drop not null;
 
 alter table public.size_charts add column if not exists popup_uses int not null default 0;
+
+-- Garment fit style on each chart (fitted / regular / relaxed / oversized).
+-- Safe to re-run: add column only if it does not already exist.
+alter table public.size_charts add column if not exists fit_style text
+  not null default 'regular'
+  check (fit_style in ('fitted', 'regular', 'relaxed', 'oversized'));
