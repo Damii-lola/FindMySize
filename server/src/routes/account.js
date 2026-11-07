@@ -260,11 +260,16 @@ payRoutes.post('/subscription/renew', ah(async (req, res) => {
 chartRoutes.get('/all', ah(async (req, res) => {
   if (!adminFromReq(req)) throw new HttpError(401, 'Log in first');
   if (!supabaseConfigured()) return res.json({ charts: [] });
-  const { data, error } = await db().from('size_charts')
-    .select('id, code, name, sex, unit, columns, rows, popup, brand, created_at')
+  let { data, error } = await db().from('size_charts')
+    .select('id, code, name, sex, unit, fit_style, columns, rows, popup, brand, created_at')
     .order('created_at', { ascending: false });
+  if (error && /fit_style|column.*does not exist/i.test(error.message || '')) {
+    ({ data, error } = await db().from('size_charts')
+      .select('id, code, name, sex, unit, columns, rows, popup, brand, created_at')
+      .order('created_at', { ascending: false }));
+  }
   if (error) throw new HttpError(500, error.message);
-  res.json({ charts: data || [] });
+  res.json({ charts: (data || []).map((r) => ({ ...r, fitStyle: r.fit_style || r.fitStyle || 'regular' })) });
 }));
 
 payRoutes.get('/brands', ah(async (req, res) => {
@@ -494,19 +499,31 @@ chartRoutes.get('/', ah(async (req, res) => {
       return res.json({ charts: all });
     }
     const key = user?.id || req.get('x-device-id') || 'anon';
-    return res.json({ charts: charts.get(key) || [] });
+    return res.json({ charts: (charts.get(key) || []).map((r) => ({ ...r, fitStyle: r.fitStyle || 'regular' })) });
   }
   // Build the query: admin sees everything; regular users see their own charts
   // plus any legacy charts without a user_id (saved before accounts were required).
-  let q = db().from('size_charts')
-    .select('id, code, name, sex, unit, columns, rows, popup, brand, user_id, created_at, updated_at')
-    .order('created_at', { ascending: false });
-  if (!admin) {
-    q = q.or(`user_id.eq.${user.id},user_id.is.null`);
+  const buildQ = (select) => {
+    let q = db().from('size_charts').select(select).order('created_at', { ascending: false });
+    if (!admin) q = q.or(`user_id.eq.${user.id},user_id.is.null`);
+    return q;
+  };
+  let { data, error } = await buildQ(
+    'id, code, name, sex, unit, fit_style, columns, rows, popup, brand, user_id, created_at, updated_at'
+  );
+  // fit_style column may not exist yet (migration pending): fall back gracefully.
+  if (error && /fit_style|column.*does not exist/i.test(error.message || '')) {
+    ({ data, error } = await buildQ(
+      'id, code, name, sex, unit, columns, rows, popup, brand, user_id, created_at, updated_at'
+    ));
   }
-  const { data, error } = await q;
   if (error) throw new HttpError(500, error.message);
-  return res.json({ charts: data || [] });
+  // Normalise fit_style: the DB column is snake_case; the JS side expects camelCase.
+  const normalised = (data || []).map((row) => ({
+    ...row,
+    fitStyle: row.fit_style || row.fitStyle || 'regular',
+  }));
+  return res.json({ charts: normalised });
 }));
 
 chartRoutes.post('/', ah(async (req, res) => {

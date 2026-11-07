@@ -99,29 +99,41 @@ export async function listCharts() {
   if (hasAdminToken()) {
     try {
       const result = await api('/api/charts/all');
-      if (result && Array.isArray(result.charts)) return result.charts;
+      if (result && Array.isArray(result.charts)) {
+        return result.charts.map((r) => ({ ...r, fitStyle: r.fit_style || r.fitStyle || 'regular' }));
+      }
     } catch { /* fall through */ }
   }
   if (await hasSession()) {
     // Primary source of truth: server API (scoped by user_id). This keeps charts in sync across devices.
     try {
       const result = await api('/api/charts');
-      if (result && Array.isArray(result.charts)) return result.charts;
+      if (result && Array.isArray(result.charts)) {
+        return result.charts.map((r) => ({ ...r, fitStyle: r.fit_style || r.fitStyle || 'regular' }));
+      }
     } catch { /* fall through to direct Supabase if available */ }
     const client = await supabaseClient();
     if (client) {
       let { data, error } = await client
         .from('size_charts')
-        .select('id, code, name, sex, unit, columns, rows, popup, popup_uses, created_at, updated_at')
+        .select('id, code, name, sex, unit, fit_style, columns, rows, popup, popup_uses, created_at, updated_at')
         .order('created_at', { ascending: false });
       if (error && /popup_uses/i.test(error.message || '')) {
+        ({ data, error } = await client
+          .from('size_charts')
+          .select('id, code, name, sex, unit, fit_style, columns, rows, popup, created_at, updated_at')
+          .order('created_at', { ascending: false }));
+      }
+      // fit_style column may not exist yet (migration pending): fall back gracefully.
+      if (error && /fit_style|column.*does not exist/i.test(error?.message || '')) {
         ({ data, error } = await client
           .from('size_charts')
           .select('id, code, name, sex, unit, columns, rows, popup, created_at, updated_at')
           .order('created_at', { ascending: false }));
       }
       if (error) throw error;
-      return data || [];
+      // Normalise DB snake_case to JS camelCase.
+      return (data || []).map((row) => ({ ...row, fitStyle: row.fit_style || row.fitStyle || 'regular' }));
     }
   }
   // Signed out: do not show device-local charts as the user's library (prevents cross-device confusion).
