@@ -152,7 +152,7 @@ const RANGES = {
  */
 const FRAME_PROMPT = `You are a measuring instrument, not a guesser. You are shown ONE frame from a video of a person slowly turning through 360 degrees. Report only what is VISIBLE in this frame, as geometry we will compute from. Never estimate a size, never give inches or centimetres, and never fill in something you cannot see. A missing value is far more useful than an invented one.
 
-STEP 1 - FIND THE PERSON. Ignore the background, furniture, other people, pets, text and objects. Use only the single person in the foreground. If no person is clearly visible, reply {"personVisible": false} and nothing else.
+STEP 1 - FIND THE PERSON. Ignore the background, furniture, other people, pets, text and objects. Use only the single person in the foreground. If no person is clearly visible, reply {"personVisible": false} and nothing else. If TWO OR MORE people are visible and you cannot clearly identify which one is the subject being measured, reply {"personVisible": false, "reason": "multiple-people"} and nothing else — a measurement blended across two bodies is worse than no measurement at all.
 
 STEP 2 - WHICH WAY ARE THEY FACING? "view": front | back | side | three-quarter (a side view is a left or right profile). Also give "turn": how far the body has rotated away from square-on to the camera, in whole degrees 0-90, kept consistent with the view (front or back 0-15, three-quarter 25-65, side 70-90).
 
@@ -1102,6 +1102,11 @@ function geometryFrames(body) {
     // category groups is computed - so it is never guessed from the silhouette.
     gender: normGender(body.gender),
     model: typeof body.model === 'string' ? body.model.slice(0, 80) : 'on-device pose',
+    // Notes from frames the device skipped before sending (head cut off, multiple people, etc.)
+    // Collected here so finishScan can include them in the user-facing notes.
+    skippedNotes: Array.isArray(body.skippedNotes)
+      ? body.skippedNotes.filter((n) => typeof n === 'string').slice(0, 20)
+      : [],
   };
 }
 
@@ -1437,7 +1442,13 @@ bodyScan.post('/', limiter, cap, upload.fields([{ name: 'frames', maxCount: 16 }
       attempted: geo.frames.length,
       totalBytes: 0,
       sourceModel: `on-device pose (${geo.model})`,
-      poseNotes: [...new Set(geo.frames.flatMap((f) => (Array.isArray(f.notes) ? f.notes : [])))],
+      poseNotes: [...new Set([
+        ...geo.frames.flatMap((f) => (Array.isArray(f.notes) ? f.notes : [])),
+        // Notes from frames the device skipped before sending (e.g. head cut off,
+        // multiple people detected). They never made it into geo.frames but the
+        // user still needs to see the feedback.
+        ...(Array.isArray(geo.skippedNotes) ? geo.skippedNotes : []),
+      ])],
       gender: geo.gender,
       chart: brand?.chart || null,
       chartName: brand?.name || '',
@@ -1641,7 +1652,16 @@ async function finishScan(req, res, { frames, rejected, unreadable, failures, cl
     if (rejected.length) {
       throw new HttpError(422, `The landmarks we read did not describe a human body (${rejected[0].reason}). Film again with the whole person in shot, standing straight and facing the camera.`, details);
     }
-    throw new HttpError(422, 'Could not find a person to measure. Make sure the person fills the frame and the lighting is decent.', details);
+    // Try to give a recording-specific reason from the unreadable frames.
+    const unreadableReasons = [...new Set(
+      unreadable.map((u) => {
+        try { return JSON.parse(u.reply)?.reason; } catch { return null; }
+      }).filter(Boolean),
+    )];
+    const specificMsg = unreadableReasons.includes('multiple-people')
+      ? 'More than one person is in the video. Record with only the person being measured in shot, with no one else visible.'
+      : 'Could not find a person to measure. Make sure the person fills the frame, the room is well-lit, and no one else is in shot.';
+    throw new HttpError(422, specificMsg, details);
   }
 
   /** Everything each frame reported, for a refusal we have to justify. */

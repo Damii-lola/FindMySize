@@ -172,6 +172,8 @@ export async function analyzePose(file, opts = {}) {
     const span = Math.max(0.1, t1 - t0);
 
     const frames = [];
+    /** Notes from frames that were skipped — still shown to the user. */
+    const skippedNotes = [];
     const passStart = performance.now();
     /** Frame times, so a slow device is visible in the log rather than felt. */
     const frameMs = [];
@@ -180,6 +182,20 @@ export async function analyzePose(file, opts = {}) {
       onProgress?.(`Measuring frame ${i + 1} of ${count}…`);
       await seek(video, t);
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      // Pre-filter: check camera quality BEFORE running the expensive pose model.
+      // A completely black or blown-out frame will never produce usable landmarks.
+      const camPre = readCameraQuality(ctx, canvas.width, canvas.height);
+      if (camPre) {
+        if (camPre.luma < 15) {
+          log('frame', i, `PRE-SKIP — frame is essentially black (luma=${camPre.luma.toFixed(0)})`);
+          continue;
+        }
+        if (camPre.clipped > 0.60) {
+          log('frame', i, `PRE-SKIP — frame is essentially white (clipped=${(camPre.clipped * 100).toFixed(0)}%)`);
+          continue;
+        }
+      }
 
       let det = null;
       const tDetect = performance.now();
@@ -212,7 +228,66 @@ export async function analyzePose(file, opts = {}) {
         continue;
       }
 
-      frames.push({ index: i, t, ...measured, camera: readCameraQuality(ctx, canvas.width, canvas.height) });
+      // ---- recording quality gate ----
+      // camPre was read before the pose model ran; reuse it rather than re-scanning pixels.
+      const camQuality = camPre;
+
+      // Motion blur: Laplacian variance below threshold → frame too blurry.
+      // We use a relative threshold (frames are scored against each other server-side)
+      // but an ABSOLUTE floor prevents sending completely smeared frames.
+      // A variance of < 15 means virtually zero edge content — a solid blur.
+      if (camQuality && camQuality.lapVar < 15) {
+        log('frame', i, `SKIPPED — motion blur (lapVar=${camQuality.lapVar.toFixed(1)})`);
+        continue;
+      }
+
+      // Lighting: mean luma too dark (< 30) or too bright (> 230) → unusable.
+      if (camQuality && (camQuality.luma < 30 || camQuality.luma > 230)) {
+        log('frame', i, `SKIPPED — bad lighting (luma=${camQuality.luma.toFixed(0)})`);
+        if (camQuality.luma < 30) {
+          measured.notes.push('This frame was too dark to measure accurately. Record in a well-lit room.');
+        } else {
+          measured.notes.push('This frame was overexposed. Avoid bright light directly behind you.');
+        }
+        // Still push (with the note) so the server can include the note in its response.
+        // But mark it as low confidence.
+        measured.confidence = Math.min(measured.confidence, 0.2);
+      }
+
+      // Severe clipping (> 30% of pixels blown out) → reject entirely.
+      if (camQuality && camQuality.clipped > 0.30) {
+        log('frame', i, `SKIPPED — severe overexposure (clipped=${(camQuality.clipped * 100).toFixed(0)}%)`);
+        continue;
+      }
+
+      // Multiple people: skip the frame entirely — merging two bodies is worse than a gap.
+      if (measured.qualityWarnings?.includes('multiple-people')) {
+        log('frame', i, 'SKIPPED — multiple people detected in this frame');
+        for (const n of measured.notes) skippedNotes.push(n);
+        continue;
+      }
+
+      // Head cut off: the head is the scale anchor. Without it the entire
+      // centimetre scale is untrustworthy, so skip rather than guess.
+      if (measured.qualityWarnings?.includes('head-cut')) {
+        log('frame', i, 'SKIPPED — head is cut off (scale anchor lost)');
+        for (const n of measured.notes) skippedNotes.push(n);
+        continue;
+      }
+
+      // Body cropped (lower body hidden): height cannot be verified, down-weight heavily.
+      if (measured.qualityWarnings?.includes('body-cropped')) {
+        log('frame', i, 'WARNING — body cropped, down-weighting');
+        measured.confidence = Math.min(measured.confidence, 0.25);
+      }
+
+      // Person too far: include the frame but mark low confidence so it is down-weighted.
+      if (measured.qualityWarnings?.includes('too-far')) {
+        log('frame', i, 'WARNING — person too far from camera, down-weighting');
+        measured.confidence = Math.min(measured.confidence, 0.3);
+      }
+
+      frames.push({ index: i, t, ...measured, camera: camQuality });
       log('frame', i, `t=${t.toFixed(1)}s`, `detect=${detectMs}ms`, `view=${measured.view}`, `conf=${measured.confidence.toFixed(2)}`,
         `head cm/width=${measured.debug.headCmPerWidth ? measured.debug.headCmPerWidth.toFixed(1) : 'none'}`,
         `pose cm/width=${measured.debug.poseCmPerWidth ? measured.debug.poseCmPerWidth.toFixed(1) : 'none'}`,
@@ -223,6 +298,6 @@ export async function analyzePose(file, opts = {}) {
     log('pose pass', `${Math.round(performance.now() - passStart)}ms for ${count} frames`,
       '·', frames.length, 'readable · detect', frameMs.join('/'), 'ms · model', engine.model);
 
-    return { frames, width: canvas.width, height: canvas.height, model: engine.model, duration };
+    return { frames, skippedNotes: [...new Set(skippedNotes)], width: canvas.width, height: canvas.height, model: engine.model, duration };
   });
 }

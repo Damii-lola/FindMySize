@@ -198,6 +198,10 @@ export function analyzeGeometry(measured, opts = {}) {
   const body = {
     source: 'pose',
     model: measured.model,
+    // Notes from frames that were skipped client-side (e.g. head cut off,
+    // multiple people). They never made it into the frames array but should
+    // still reach the user as feedback, so they travel separately.
+    skippedNotes: Array.isArray(measured.skippedNotes) ? measured.skippedNotes : [],
     gender: opts.gender || 'unsure',
     aspect: measured.width && measured.height ? measured.width / measured.height : undefined,
     // The store's own size chart, when the scan came in through their link. It
@@ -229,6 +233,10 @@ export function analyzeGeometry(measured, opts = {}) {
       camera: f.camera,
       notes: f.notes,
       unmeasured: f.unmeasured,
+      // Quality flags raised by the on-device detector (multiple-people, too-far,
+      // head-cut, body-cropped). Already used by pose.js to skip/down-weight frames
+      // before sending; included here so the server can log them in diagnostics.
+      qualityWarnings: f.qualityWarnings,
     })),
   };
   log('POST', url, '(on-device geometry)');

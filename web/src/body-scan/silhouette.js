@@ -134,6 +134,46 @@ export function metricScale({ lm, world, imgW, imgH }) {
  *          world?: Array<{x:number,y:number,z:number}>,
  *          imgW: number, imgH: number, gender?: string}} frame
  */
+/**
+ * Estimate whether the mask contains more than one person.
+ *
+ * MediaPipe's pose model is configured for numPoses=1, so it always returns
+ * ONE skeleton. But the segmentation mask includes ALL foreground people —
+ * a second person in shot inflates torso widths by however wide they are,
+ * and an inflated torso produces a size that fits nobody. This check counts
+ * distinct large blobs at the torso band: two blobs that are each at least
+ * 25% of the frame width apart are two people.
+ */
+function detectMultiplePeople(mask, maskW, maskH, lm) {
+  // Sample three rows in the torso band (shoulder to hip).
+  const shoulderY = Math.round(((lm[11].y + lm[12].y) / 2) * maskH);
+  const hipY = Math.round(((lm[23].y + lm[24].y) / 2) * maskH);
+  if (!(hipY > shoulderRow + 10)) return false;
+  const bandH = hipY - shoulderY;
+  const minBlobW = maskW * 0.08; // must be at least 8% wide to count
+  const minGap = maskW * 0.12;   // blobs must be 12% apart to be separate people
+  for (const frac of [0.25, 0.5, 0.75]) {
+    const y = Math.round(shoulderY + bandH * frac);
+    const runs = rowRuns(mask, maskW, maskH, y).filter((r) => r.w >= minBlobW);
+    if (runs.length < 2) continue;
+    // Two large blobs with a real gap between them.
+    for (let i = 0; i < runs.length - 1; i += 1) {
+      if (runs[i + 1].x0 - runs[i].x1 >= minGap) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Returns the fraction [0..1] of the frame's height that the person occupies.
+ * Too small (< 0.35) = person is too far from the camera.
+ * Too large (> 0.98) = person is too close / body is cut off.
+ */
+function personHeightFraction(topRow, botRow, maskH) {
+  if (topRow < 0 || botRow < 0) return 0;
+  return (botRow - topRow) / maskH;
+}
+
 export function measureSilhouette({ mask, maskW, maskH, lm, world, imgW, imgH, gender = 'unsure' }) {
   if (!mask || !maskW || !maskH || !lm || lm.length < 33) return null;
   const notes = [];
@@ -143,6 +183,11 @@ export function measureSilhouette({ mask, maskW, maskH, lm, world, imgW, imgH, g
    * is the only place that knows whether the gap survived the other frames.
    */
   const unmeasured = [];
+  /**
+   * Quality flags the calling code should check before trusting this frame's
+   * measurements. Set to a non-null string to signal a specific problem.
+   */
+  const qualityWarnings = [];
   const vis = (i) => Number(lm[i]?.visibility) || 0;
   const row = (ny) => Math.round(ny * maskH);
   const margin = ARM_MARGIN_FRAC * maskW;
@@ -156,6 +201,47 @@ export function measureSilhouette({ mask, maskW, maskH, lm, world, imgW, imgH, g
   for (let y = maskH - 1; y >= 0; y -= 1) if (rowRuns(mask, maskW, maskH, y).length) { botRow = y; break; }
   if (topRow < 0) return null;
 
+  // ---- recording problem detection ----
+
+  // Multiple people: two large mask blobs in the torso band.
+  const shoulderY = Math.round(((lm[11].y + lm[12].y) / 2) * maskH);
+  const hipYcheck = Math.round(((lm[23].y + lm[24].y) / 2) * maskH);
+  if (hipYcheck > shoulderY + 10) {
+    const bandH = hipYcheck - shoulderY;
+    const minBlobW = maskW * 0.08;
+    const minGap = maskW * 0.12;
+    let multiperson = false;
+    for (const frac of [0.25, 0.5, 0.75]) {
+      const y = Math.round(shoulderY + bandH * frac);
+      const runs = rowRuns(mask, maskW, maskH, y).filter((r) => r.w >= minBlobW);
+      if (runs.length >= 2) {
+        for (let i = 0; i < runs.length - 1; i += 1) {
+          if (runs[i + 1].x0 - runs[i].x1 >= minGap) { multiperson = true; break; }
+        }
+      }
+      if (multiperson) break;
+    }
+    if (multiperson) {
+      qualityWarnings.push('multiple-people');
+      notes.push('More than one person appears to be in the frame. Only one person should be in shot for an accurate measurement.');
+    }
+  }
+
+  // Person too far: silhouette height less than 35% of frame height.
+  const heightFrac = personHeightFraction(topRow, botRow, maskH);
+  if (heightFrac > 0 && heightFrac < 0.35) {
+    qualityWarnings.push('too-far');
+    notes.push('You appear to be too far from the camera. Move closer so your body fills most of the frame.');
+  }
+
+  // Head cut off: silhouette reaches the top edge — the head is not fully in shot.
+  // This matters most because the head is the scale anchor; a cut head loses it.
+  if (topRow <= 1) {
+    qualityWarnings.push('head-cut');
+    notes.push('Your head is cut off at the top of the frame. Step back or tilt the camera down so your whole body is visible.');
+  }
+
+  // Person too close / severe crop: top of silhouette is within 2 rows of the top.
   const headCut = topRow <= 1;
   // Feet are "out of shot" when the silhouette runs into the bottom edge — or,
   // more subtly, when the silhouette stops well above the ankle joints. That
@@ -488,6 +574,10 @@ export function measureSilhouette({ mask, maskW, maskH, lm, world, imgW, imgH, g
   // look, because the pose will happily place ankles at the hem.
   const chainHeads = headHeightPx > 4 ? (botRow - headTopRow) / headHeightPx : 0;
   const bodyCropped = useFace && chainHeads > 0 && chainHeads < 6.6;
+  if (bodyCropped) {
+    qualityWarnings.push('body-cropped');
+    notes.push('Your lower body appears to be cut off — the camera sees less than a full standing height. Make sure your whole body is visible from head to toe.');
+  }
 
   // ---- landmarks, in the 0-100 scale the measurement engine reads ----
   const P = (xCol, yRow) => ({ x: r1((xCol / maskW) * 100), y: r1((yRow / maskH) * 100) });
@@ -665,6 +755,7 @@ export function measureSilhouette({ mask, maskW, maskH, lm, world, imgW, imgH, g
     confidence,
     notes,
     unmeasured,
+    qualityWarnings,
     debug: {
       topRow, botRow, neckRow, chinRow, shoulderRow, elbowRow, armRow, hipRowLM, crotchRow,
       usableRows: usable.length,
