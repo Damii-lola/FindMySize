@@ -674,18 +674,18 @@ function updateStats(charts) {
     const t = c.updated_at || c.created_at;
     if (t && (!latest || String(t) > String(latest))) latest = t;
   }
-  statBrands.textContent = brands.size;
-  statGarments.textContent = charts.length;
+  if (statBrands) statBrands.textContent = brands.size;
+  if (statGarments) statGarments.textContent = charts.length;
   if (showingPopupUses) {
-    statPopups.textContent = popups;
-    statPopupToggle.querySelector('.stat-label').textContent = 'Popup uses';
+    if (statPopups) statPopups.textContent = popups;
+    statPopupToggle?.querySelector('.stat-label') && (statPopupToggle.querySelector('.stat-label').textContent = 'Popup uses');
   } else {
-    statPopups.textContent = latest ? new Date(latest).toLocaleDateString() : '&mdash;';
-    statPopupToggle.querySelector('.stat-label').textContent = 'Last saved';
+    if (statPopups) statPopups.textContent = latest ? new Date(latest).toLocaleDateString() : '\u2014';
+    statPopupToggle?.querySelector('.stat-label') && (statPopupToggle.querySelector('.stat-label').textContent = 'Last saved');
   }
 }
 
-statPopupToggle.addEventListener('click', () => {
+statPopupToggle?.addEventListener('click', () => {
   showingPopupUses = !showingPopupUses;
   const charts = shown; // currently rendered charts
   updateStats(charts);
