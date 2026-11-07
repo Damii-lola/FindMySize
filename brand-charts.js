@@ -510,7 +510,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (btn) btn.click();
         setTimeout(function () {
           var title = document.querySelector('.pe-title');
-          if (title) title.lastChild.textContent = brand;
+          if (title && title.lastChild) title.lastChild.textContent = brand;
         }, 200);
       });
       actions.querySelector('[data-delete-brand]').addEventListener('click', async function () {
@@ -579,10 +579,12 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  if (list) new MutationObserver(function () {
-    if (list.dataset.grouping === '1') return;
+  // Listen for a signal from the Vite dashboard bundle instead of a MutationObserver
+  // (the observer caused a race: it fired mid-render and wiped cards before they finished).
+  window.addEventListener('fms:list-rendered', function () {
+    if (!list || list.dataset.grouping === '1') return;
     if (list.querySelector(':scope > :not(.brand-group)')) group();
-  }).observe(list, { childList: true });
+  });
   if (search) {
     search.placeholder = 'Search brands';
     search.addEventListener('input', group);

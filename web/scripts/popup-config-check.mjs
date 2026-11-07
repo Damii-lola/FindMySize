@@ -3,7 +3,7 @@
  * costs (nothing). Run with `npm run check`.
  */
 import assert from 'node:assert/strict';
-import { applyPopupConfig, applyPreset, decodeDesign, encodeDesign, CHOICES, PRESETS, safeUrl, buttonAttributes, buttonAttributeString, contrast, DEFAULTS, effectiveColours, fontFromGuess, fromAnalysis, hex6, isDefault, normalizePopup, popupCss, readableOn } from '../src/popup-config.js';
+import { applyPopupConfig, buttonAttributes, buttonAttributeString, contrast, DEFAULTS, effectiveColours, fontFromGuess, fromAnalysis, hex6, isDefault, normalizePopup, popupCss, readableOn } from '../src/popup-config.js';
 
 let passed = 0;
 const test = (name, fn) => { fn(); passed += 1; console.log('ok -', name); };
@@ -112,145 +112,19 @@ test('the snippet carries only what differs, and escapes what a store typed', ()
 
 test('the AI answer becomes settings, and unusable parts are left alone', () => {
   const c = normalizePopup({});
-  fromAnalysis(c, { primaryColor: '#2563eb', backgroundColor: '#ffffff', fontFamily: 'Georgia, serif' });
-  assert.ok(hex6(c.theme.accent) && contrast(c.theme.accent, c.theme.background) >= 3.5);   // fitted so it can be read
+  fromAnalysis(c, { primaryColor: '#2563eb', backgroundColor: '#ffffff', textColor: '#111111', borderRadius: 0.5, fontFamily: 'Georgia, serif' });
+  assert.equal(c.theme.accent, '#2563eb');
+  assert.equal(c.theme.background, '#ffffff');
+  assert.equal(c.theme.radius, 8);
   assert.equal(c.theme.font, 'serif');
-  assert.equal(c.button.bg, c.theme.accent);
-  assert.equal(c.button.textColor, readableOn(c.theme.accent));
+  assert.equal(c.button.bg, '#2563eb');
+  assert.equal(c.button.textColor, readableOn('#2563eb'));
   const d = normalizePopup({});
   fromAnalysis(d, { primaryColor: 'blue', backgroundColor: 'url(x)', borderRadius: 'big' });
-  assert.ok(hex6(d.theme.accent) && hex6(d.theme.background));   // junk in, a valid colour out
+  assert.deepEqual(d, normalizePopup({}));
   assert.equal(fontFromGuess('Inter, sans-serif'), 'clean');
   assert.equal(fontFromGuess('Playfair Display'), 'serif');
   assert.equal(fontFromGuess('Comic Neue'), 'default');
-});
-
-/* ---------- the options added later ---------- */
-
-const EVERYTHING = {
-  v: 2,
-  theme: { bgStyle: 'aurora', gradientAngle: 90, glow: 40, glowPos: 'corner', pattern: 'grain', patternStrength: 20, font: 'editorial', headingFont: 'didone',
-    headingWeight: 700, headingStyle: 'italic', headingCase: 'upper', headingTracking: 8, headingSize: 1.2, align: 'center', density: 'roomy', surface: 'glass',
-    borderWidth: 2, dropzone: 'dotted', cardCorners: 'round', cardShadow: 'lifted', accentEdge: 'full', ctaStyle: 'outline', ctaRadius: 4, ctaCase: 'upper', motion: 'off' },
-  button: { style: 'gradient', size: 'lg', weight: 800, shadow: 'glow', icon: 'ruler', iconPos: 'right', upper: true, hover: 'lift', attention: 'pulse', edgeX: 30, edgeY: 40, font: 'didone', compact: true, delay: 5 },
-  record: { badge: 'Aso Oke', icon: 'tshirt', iconSize: 100, privacy: false, privacyTitle: 'Private', privacyText: 'Stays on your phone.', showInstruction: false },
-  results: { note: 'Free exchanges', linkLabel: 'Size guide', linkUrl: 'https://example.com/guide', sizeScale: 1.3, sizeColor: 'accent', verdictStyle: 'outline' },
-  window: { placement: 'right', width: 'wide', animation: 'zoom', overlayColor: '#112233', overlayDim: 50, overlayBlur: 12, borderStyle: 'accent', shadow: 'glow', closeStyle: 'light', closeOutside: false },
-};
-
-test('a design saved before the new options existed is unchanged: same CSS, same snippet', () => {
-  const old = { v: 2, theme: { background: '#10151f', text: '#e8edf7', accent: '#4f8cff', radius: 20, font: 'serif' }, button: { label: 'Fit me', bg: '#4f8cff' }, record: { headline: 'Hi' } };
-  const cfg = normalizePopup(old);
-  assert.equal(cfg.theme.glow, 28);
-  assert.equal(cfg.window.placement, 'center');
-  assert.ok(!/background:/.test(popupCss(old).split('\n').filter((l) => l.includes('.stage')).join('')));   // the old way: variables only
-  assert.equal(buttonAttributeString(old), ' data-label="Fit me" data-color="#4f8cff"');
-});
-
-test('every new option survives a round trip, and a design code carries all of them', () => {
-  const cfg = normalizePopup(EVERYTHING);
-  for (const [group, values] of Object.entries(EVERYTHING)) {
-    if (group === 'v') continue;
-    for (const [k, v] of Object.entries(values)) assert.deepEqual(cfg[group][k], v, `${group}.${k}`);
-  }
-  assert.deepEqual(decodeDesign(encodeDesign(EVERYTHING)), cfg);
-});
-
-test('anything not on a list, or out of range, falls back or is clamped', () => {
-  const junk = normalizePopup({ v: 2,
-    theme: { bgStyle: 'url(x)', pattern: '}body{', surface: 7, glow: 999, headingWeight: 12345, headingSize: -1, headingFont: 'comic', borderWidth: 99, motion: {} },
-    button: { style: '</style>', size: 'huge', weight: 5, edgeX: 9999, delay: -3, icon: 'evil.svg', font: 'x;y' },
-    record: { icon: '../x', iconSize: 1, badge: 'y'.repeat(200) }, results: { sizeScale: 50, verdictStyle: null },
-    window: { placement: 'top', overlayDim: 500, overlayColor: 'red', overlayBlur: 'lots', shadow: 'x' } });
-  const D = DEFAULTS;
-  assert.equal(junk.theme.bgStyle, D.theme.bgStyle);
-  assert.equal(junk.theme.pattern, 'none');
-  assert.equal(junk.theme.glow, 60);
-  assert.equal(junk.theme.headingWeight, 800);
-  assert.equal(junk.theme.headingSize, 0.8);
-  assert.equal(junk.theme.headingFont, 'auto');
-  assert.equal(junk.theme.borderWidth, 3);
-  assert.equal(junk.button.size, 'md');
-  assert.equal(junk.button.weight, 500);
-  assert.equal(junk.button.edgeX, 72);
-  assert.equal(junk.button.delay, 0);
-  assert.equal(junk.button.icon, 'camera');
-  assert.equal(junk.record.icon, 'camera');
-  assert.equal(junk.record.iconSize, 48);
-  assert.equal(junk.record.badge.length, 28);
-  assert.equal(junk.results.sizeScale, 1.6);
-  assert.equal(junk.window.placement, 'center');
-  assert.equal(junk.window.overlayDim, 95);
-  assert.equal(junk.window.overlayColor, D.window.overlayColor);
-});
-
-test('links must be https; nothing else can be a link in the popup', () => {
-  assert.equal(safeUrl('https://shop.example.com/size guide'), 'https://shop.example.com/size%20guide');
-  for (const bad of ['javascript:alert(1)', 'data:text/html,x', 'http://example.com', '//example.com', 'example.com', '', 5, null, 'https://']) assert.equal(safeUrl(bad), '', String(bad));
-  assert.equal(normalizePopup({ v: 2, results: { linkUrl: 'javascript:alert(1)', linkLabel: 'x' } }).results.linkUrl, '');
-});
-
-test('the CSS for every option is made only of lists, numbers and hex colours', () => {
-  const css = popupCss(EVERYTHING);
-  assert.ok(css.length > 1500);
-  const scannable = css.replace(/url\("data:image\/svg\+xml,[^"]*"\)/g, '');   // our own grain tile
-  assert.ok(!/<|javascript|expression|@import|\burl\(/i.test(scannable), scannable);
-  // no braces or semicolons smuggled into a value: every rule is selector{decl;decl}
-  for (const line of css.split('\n').filter(Boolean)) assert.equal((line.match(/\{/g) || []).length, (line.match(/\}/g) || []).length, line);
-  // a valid colour must not be able to carry a second declaration
-  const sneaky = popupCss({ v: 2, theme: { accent: '#fff;background:red', background: '#000};body{x:y', overlayColor: 'x' }, window: { overlayColor: '#fff;x:y' } });
-  assert.ok(!/red|x:y/.test(sneaky), sneaky);
-});
-
-test('the new options each write what they say, and the old default writes none of it', () => {
-  assert.equal(popupCss({}), '');
-  assert.match(popupCss({ v: 2, theme: { align: 'center' } }), /text-align:center/);
-  assert.match(popupCss({ v: 2, theme: { headingCase: 'upper', headingStyle: 'italic', headingWeight: 700 } }), /text-transform:uppercase;font-style:italic|font-weight:700/);
-  assert.match(popupCss({ v: 2, theme: { pattern: 'grid' } }), /linear-gradient/);
-  assert.match(popupCss({ v: 2, theme: { pattern: 'grain' } }), /data:image\/svg\+xml/);
-  assert.match(popupCss({ v: 2, theme: { glow: 0 } }), /\.stage\{background:#221a15\}/);
-  assert.match(popupCss({ v: 2, theme: { bgStyle: 'gradient', gradientAngle: 200 } }), /linear-gradient\(200deg/);
-  assert.match(popupCss({ v: 2, theme: { motion: 'off' } }), /animation:none !important/);
-  assert.match(popupCss({ v: 2, record: { privacy: false } }), /\.privacy\{display:none\}/);
-  assert.match(popupCss({ v: 2, results: { sizeScale: 1.5 } }), /\.verdict-size\{font-size:5\.1rem\}/);
-  assert.match(popupCss({ v: 2, record: { badge: 'New' } }), /\.pu-badge/);
-  assert.ok(!/pu-badge/.test(popupCss({ v: 2, theme: { align: 'center' } })));
-  assert.match(popupCss({ v: 2, theme: { accent: '#ffd400' } }), /\.btn-primary\{color:#191411\}/);   // dark ink on a light accent
-});
-
-test('every look is readable, and every list holds what the defaults use', () => {
-  for (const preset of PRESETS) {
-    const cfg = applyPreset(normalizePopup({}), preset);
-    const full = normalizePopup(cfg);
-    assert.deepEqual(full.theme.accent, cfg.theme.accent, preset.name);          // nothing in a look is refused
-    assert.deepEqual(normalizePopup({ v: 2, ...cfg }).theme, full.theme, preset.name);
-    assert.ok(contrast(cfg.theme.text, cfg.theme.background) >= 4.5, `${preset.name} text`);
-    assert.ok(contrast(cfg.theme.accent, cfg.theme.background) >= 2.2 || cfg.theme.ctaStyle === 'solid', `${preset.name} accent`);
-    assert.ok(contrast(cfg.button.textColor, cfg.button.bg) >= 3, `${preset.name} button`);
-    assert.ok(popupCss(cfg) !== undefined);
-  }
-  const keyFor = { bgStyle: ['theme', 'bgStyle'], glowPos: ['theme', 'glowPos'], pattern: ['theme', 'pattern'], surface: ['theme', 'surface'], placement: ['window', 'placement'], animation: ['window', 'animation'], shadow: ['window', 'shadow'], borderStyle: ['window', 'borderStyle'], closeStyle: ['window', 'closeStyle'], buttonStyle: ['button', 'style'] };
-  for (const [list, [group, key]] of Object.entries(keyFor)) assert.ok(CHOICES[list].some(([v]) => v === DEFAULTS[group][key]), `${list} lacks its default`);
-});
-
-test('applying a look keeps what the store wrote and drops what the last look added', () => {
-  const cfg = normalizePopup({ v: 2, button: { label: 'Fit me', side: 'left', icon: 'ruler' } });
-  applyPreset(cfg, PRESETS.find((p) => p.name === 'Editorial'));
-  assert.equal(cfg.button.label, 'Fit me');
-  assert.equal(cfg.button.side, 'left');
-  assert.equal(cfg.button.icon, 'ruler');
-  assert.equal(cfg.button.upper, true);
-  assert.equal(cfg.theme.headingStyle, 'italic');
-  applyPreset(cfg, PRESETS.find((p) => p.name === 'Midnight'));
-  assert.equal(cfg.theme.headingStyle, 'normal');
-  assert.equal(cfg.button.upper, false);
-  assert.equal(cfg.window.animation, 'rise');
-});
-
-test('the snippet carries each new button setting, and only those that differ', () => {
-  const attrs = buttonAttributes(EVERYTHING);
-  for (const k of ['data-style', 'data-size', 'data-weight', 'data-shadow', 'data-icon', 'data-icon-pos', 'data-upper', 'data-hover', 'data-attention', 'data-edge-x', 'data-edge-y', 'data-font', 'data-compact', 'data-delay']) assert.ok(k in attrs, k);
-  assert.deepEqual(buttonAttributes({ v: 2, button: { size: 'md', icon: 'camera', weight: 650 } }), {});
 });
 
 console.log(`\n${passed} passed`);

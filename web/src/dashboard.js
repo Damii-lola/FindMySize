@@ -656,6 +656,8 @@ function renderList(charts) {
     return;
   }
   visible.forEach((chart, index) => listEl.append(card(chart, index)));
+  // Signal brand-charts.js that the list is fully rendered so it can group cards.
+  window.dispatchEvent(new CustomEvent('fms:list-rendered'));
 }
 
 function updateStats(charts) {
