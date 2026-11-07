@@ -1,4 +1,8 @@
 document.addEventListener('DOMContentLoaded', function () {
+  // Set once the Vite bundle has finished rendering the chart list.
+  var listReady = false;
+  window.addEventListener('fms:list-rendered', function () { listReady = true; });
+
   var form = document.getElementById('chart-form');
   var nameInput = document.getElementById('chart-name');
   var brandInput = document.getElementById('chart-brand');
@@ -582,6 +586,7 @@ document.addEventListener('DOMContentLoaded', function () {
   // Listen for a signal from the Vite dashboard bundle instead of a MutationObserver
   // (the observer caused a race: it fired mid-render and wiped cards before they finished).
   window.addEventListener('fms:list-rendered', function () {
+    listReady = true;
     if (!list || list.dataset.grouping === '1') return;
     if (list.querySelector(':scope > :not(.brand-group)')) group();
   });
@@ -637,7 +642,8 @@ document.addEventListener('DOMContentLoaded', function () {
         if (data.brands && Object.keys(data.brands).length) localStorage.setItem(KEY, JSON.stringify(data.brands));
         if (data.activations && Object.keys(data.activations).length) localStorage.setItem('fms-brand-active', JSON.stringify(data.activations));
         if (data.designs && Object.keys(data.designs).length) localStorage.setItem('fms-brand-popup', JSON.stringify(data.designs));
-        group();
+        // Only group once the Vite bundle has finished rendering; otherwise retry.
+        if (listReady) { group(); } else { window.addEventListener('fms:list-rendered', function once() { window.removeEventListener('fms:list-rendered', once); group(); }); }
       }).catch(function () {});
     fetch('https://findmysize.onrender.com/api/charts/all', { headers: { Authorization: 'Bearer ' + token } })
       .then(function (r) { return r.ok ? r.json() : null; })
