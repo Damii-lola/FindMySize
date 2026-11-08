@@ -19,7 +19,7 @@ dist = 'web/dist'
 root = '.'
 
 # Directories to sync from dist to root (built output)
-dirs = ['assets', 'auth', 'dashboard', 'settings', 'size']
+dirs = ['assets', 'auth', 'dashboard', 'size']
 
 # Root-level built files to sync (NOT index.html — that is the scanner,
 # which comes from web/dist/size/index.html, handled below)

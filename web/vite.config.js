@@ -17,7 +17,6 @@ export default defineConfig({
         // Home is the landing page
         size: page('size/index.html'),
         dashboard: page('dashboard/index.html'),
-        settings: page('settings/index.html'),
         auth: page('auth/index.html'),
       },
       output: { manualChunks: { three: ['three'], supabase: ['@supabase/supabase-js'] } },
