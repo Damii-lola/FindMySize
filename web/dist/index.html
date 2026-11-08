@@ -16,24 +16,24 @@
       content="Give your customers an accurate size recommendation in under a minute — using only a quick 360° video. Nothing to install, nothing stored."
     />
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23f0521f'/%3E%3Cg transform='rotate(45 16 16)'%3E%3Crect x='12.5' y='6' width='7' height='3.2' rx='1' fill='%23fdf7ea'/%3E%3Crect x='12.5' y='9.2' width='7' height='1.4' fill='%23f0521f'/%3E%3Crect x='12.5' y='10.6' width='7' height='12.2' rx='0.6' fill='%23fdf7ea'/%3E%3Cpath d='M12.5 22.8h7L16 28z' fill='%23fdf7ea'/%3E%3Cpath d='M14.9 26.3h2.2L16 28z' fill='%23191411'/%3E%3C/g%3E%3C/svg%3E" />
-    <script src="/theme-init.js"></script>
+    <script src="/FindMySize/theme-init.js"></script>
     <!-- Sets the flag the reveal styles answer to, before anything is painted, and
          lifts it again if the script below never arrives: a chunk that fails to
          load must not leave the page invisible. -->
-    <script src="/reveal.js"></script>
-    <script type="module" crossorigin src="/assets/index-C0DK3coJ.js"></script>
-    <link rel="modulepreload" crossorigin href="/assets/modulepreload-polyfill-B5Qt9EMX.js">
-    <link rel="modulepreload" crossorigin href="/assets/api-DpyLzM6x.js">
-    <link rel="modulepreload" crossorigin href="/assets/nav-BoJOF-HZ.js">
-    <link rel="stylesheet" crossorigin href="/assets/landing-D0dmyAL3.css">
-    <link rel="stylesheet" crossorigin href="/assets/theme-B_KWcFXd.css">
+    <script src="/FindMySize/reveal.js"></script>
+    <script type="module" crossorigin src="/FindMySize/assets/index-BEDfN8ex.js"></script>
+    <link rel="modulepreload" crossorigin href="/FindMySize/assets/modulepreload-polyfill-B5Qt9EMX.js">
+    <link rel="modulepreload" crossorigin href="/FindMySize/assets/api-CjfSrLZR.js">
+    <link rel="modulepreload" crossorigin href="/FindMySize/assets/nav-CGQYO545.js">
+    <link rel="stylesheet" crossorigin href="/FindMySize/assets/landing-DpY4ysmv.css">
+    <link rel="stylesheet" crossorigin href="/FindMySize/assets/theme-B_KWcFXd.css">
   </head>
   <body id="top">
   <a class="skip" href="#main">Skip to content</a>
 
   <header class="topbar">
     <div class="shell topbar-inner">
-      <a class="brand" href="/" aria-label="FindMySize — home">
+      <a class="brand" href="/FindMySize/" aria-label="FindMySize — home">
         <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
           <rect width="32" height="32" rx="9" fill="#f0521f"/>
           <g transform="rotate(45 16 16)">
@@ -52,11 +52,11 @@
            (Settings + Log out when signed in, "Log in or sign up" when not) and
            opens/closes the menu and the panel. -->
       <nav class="nav" id="nav-links" aria-label="Primary">
-        <a class="nav-link" href="/">Home</a>
-        <a class="nav-link" href="/size/">Sizing</a>
-        <a class="nav-link" href="/dashboard/">Dashboard</a>
-        <a class="nav-link" href="/pricing/">Pricing</a>
-        <a class="btn btn--primary nav-demo" href="/dashboard/">Create your first chart</a>
+        <a class="nav-link" href="/FindMySize/">Home</a>
+        <a class="nav-link" href="/FindMySize/size/">Sizing</a>
+        <a class="nav-link" href="/FindMySize/dashboard/">Dashboard</a>
+        <a class="nav-link" href="/FindMySize/pricing/">Pricing</a>
+        <a class="btn btn--primary nav-demo" href="/FindMySize/dashboard/">Create your first chart</a>
       </nav>
 
       <button class="avatar" id="nav-user" type="button" aria-expanded="false" aria-controls="nav-account" aria-label="Account and settings">
@@ -73,8 +73,8 @@
 
       <div class="account" id="nav-account" hidden>
         <p class="account-note" id="nav-account-note"></p>
-        <a class="account-item" id="nav-account-settings" href="/settings/" hidden>Settings</a>
-        <a class="account-item" id="nav-account-in" href="/auth/">Log in or sign up</a>
+        <a class="account-item" id="nav-account-settings" href="/FindMySize/settings/" hidden>Settings</a>
+        <a class="account-item" id="nav-account-in" href="/FindMySize/auth/">Log in or sign up</a>
         <button class="account-item" id="nav-account-out" type="button" hidden>Log out</button>
       </div>
     </div>
@@ -93,7 +93,7 @@
         <div class="hero-copy rise rise--2">
           <p class="hero-sub">Give your customers an accurate size recommendation in under a minute — using only a quick 360° video. Nothing to install, nothing stored.</p>
           <div class="hero-actions">
-            <a class="btn btn--primary" href="/dashboard/">
+            <a class="btn btn--primary" href="/FindMySize/dashboard/">
               Create your first chart
               <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 12h15M13 6l6 6-6 6"/></svg>
             </a>
@@ -491,7 +491,7 @@
   <footer class="footer">
     <div class="shell">
       <div class="footer-top">
-        <a class="brand" href="/" aria-label="FindMySize — home">
+        <a class="brand" href="/FindMySize/" aria-label="FindMySize — home">
           <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
           <rect width="32" height="32" rx="9" fill="#f0521f"/>
           <g transform="rotate(45 16 16)">
@@ -505,12 +505,12 @@
           <span>FindMySize</span>
         </a>
         <nav class="footer-nav" aria-label="Footer">
-          <a href="/">Home</a>
-          <a href="/size/">Sizing</a>
-          <a href="/dashboard/">Dashboard</a>
-          <a href="/pricing/">Pricing</a>
-          <a href="/privacy/">Privacy</a>
-          <a href="/terms/">Terms</a>
+          <a href="/FindMySize/">Home</a>
+          <a href="/FindMySize/size/">Sizing</a>
+          <a href="/FindMySize/dashboard/">Dashboard</a>
+          <a href="/FindMySize/pricing/">Pricing</a>
+          <a href="/FindMySize/privacy/">Privacy</a>
+          <a href="/FindMySize/terms/">Terms</a>
         </nav>
       </div>
       <div class="footer-rule" aria-hidden="true"></div>
@@ -522,6 +522,6 @@
     </div>
   </footer>
 
-  <script src="/chat.js" defer></script>
+  <script src="/FindMySize/chat.js" defer></script>
 </body>
 </html>
