@@ -85,7 +85,7 @@ authRoutes.post('/login', ah(async (req, res) => {
     const row = pending.get(`user:${email}`);
     if (!row || row.password !== password) throw new HttpError(401, 'Email or password is wrong');
     pending.set(`login-otp:${email}`, '000000');
-    return res.json({ ok: true, needsCode: !row.activated, devOtp: '000000' });
+    return res.json({ ok: true, needsCode: false, devOtp: '000000' });
   }
 
   const signed = await db().auth.signInWithPassword({ email, password });
@@ -93,7 +93,7 @@ authRoutes.post('/login', ah(async (req, res) => {
   const sub = await subscriptionOf(signed.data.user.id);
   const sent = await db().auth.signInWithOtp({ email, options: { shouldCreateUser: false } });
   if (sent.error) throw new HttpError(400, sent.error.message);
-  res.json({ ok: true, needsCode: !isActive(sub) });
+  res.json({ ok: true, needsCode: false });
 }));
 
 authRoutes.post('/login/finish', ah(async (req, res) => {
