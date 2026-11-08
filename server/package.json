@@ -9,7 +9,8 @@
   },
   "scripts": {
     "start": "node src/index.js",
-    "check": "node --check src/index.js"
+    "check": "node --check src/index.js",
+    "check:charts": "node scripts/charts-check.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",

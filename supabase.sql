@@ -88,3 +88,9 @@ alter table public.size_charts add column if not exists popup_uses int not null 
 alter table public.size_charts add column if not exists fit_style text
   not null default 'regular'
   check (fit_style in ('fitted', 'regular', 'relaxed', 'oversized'));
+
+-- The brand a garment belongs to (shown in the dashboard's brand groups and dropdown).
+-- The API now works without this column, but then a garment's brand is only remembered
+-- by the browser that set it; with it, the brand is stored with the garment itself.
+-- Safe to re-run.
+alter table public.size_charts add column if not exists brand text not null default '';

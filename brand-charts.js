@@ -135,10 +135,33 @@ document.addEventListener('DOMContentLoaded', function () {
     for (var i = 0; i < name.length; i += 1) h = (h * 31 + name.charCodeAt(i)) % 360;
     return 'hsl(' + h + ' 42% 36%)';
   }
+  /* What the server last returned for the library (null until it has). The device's own record of
+     brands ("fms-brands") only fills in garments the server has no brand for; it is never the count. */
+  var live = null;
+  function brandOf(chart) {
+    return String((chart && chart.brand) || '').trim() || brands()[String((chart && chart.name) || '').toLowerCase()] || '';
+  }
   function counts() {
     var c = {};
-    Object.values(brands()).forEach(function (b) { if (b) c[b] = (c[b] || 0) + 1; });
+    if (live) {
+      live.forEach(function (chart) { var b = brandOf(chart); if (b) c[b] = (c[b] || 0) + 1; });
+    } else {
+      Object.values(brands()).forEach(function (b) { if (b) c[b] = (c[b] || 0) + 1; });
+    }
     return c;
+  }
+  /* The server is the source of truth: a brand it stored for a garment replaces what this device remembered. */
+  function adopt(charts) {
+    live = charts;
+    var map = brands();
+    var changed = false;
+    charts.forEach(function (chart) {
+      var b = String((chart && chart.brand) || '').trim();
+      var k = String((chart && chart.name) || '').toLowerCase();
+      if (b && k && map[k] !== b) { map[k] = b; changed = true; }
+    });
+    if (changed) localStorage.setItem(KEY, JSON.stringify(map));
+    fillList();
   }
   function svgIcon(paths, extra) {
     var s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -581,10 +604,15 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // Listen for a signal from the Vite dashboard bundle instead of a MutationObserver
   // (the observer caused a race: it fired mid-render and wiped cards before they finished).
-  window.addEventListener('fms:list-rendered', function () {
+  window.addEventListener('fms:list-rendered', function (e) {
+    var detail = e && e.detail;
+    if (detail && Array.isArray(detail.charts)) adopt(detail.charts);
     if (!list || list.dataset.grouping === '1') return;
-    if (list.querySelector(':scope > :not(.brand-group)')) group();
+    if (list.querySelector(':scope > :not(.brand-group):not(.list-empty)')) group();
   });
+  // If the dashboard drew the list before this script started, it left the charts for us.
+  if (Array.isArray(window.__fmsCharts)) adopt(window.__fmsCharts);
+  if (list && list.querySelector(':scope > :not(.brand-group):not(.list-empty)')) group();
   if (search) {
     search.placeholder = 'Search brands';
     search.addEventListener('input', group);
