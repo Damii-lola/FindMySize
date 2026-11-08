@@ -433,8 +433,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
   function group() {
     if (!list || list.dataset.grouping === '1') return;
-    var cards = Array.from(list.querySelectorAll(':scope > :not(.brand-group)'));
-    if (!cards.length) cards = Array.from(list.querySelectorAll('.brand-group > :not(summary):not(.brand-actions)'));
+    var cards = Array.from(list.querySelectorAll(':scope > :not(.brand-group):not(.list-empty)'));   // the empty-state message is not a garment
+    if (!cards.length) cards = Array.from(list.querySelectorAll('.brand-group > :not(summary):not(.brand-actions):not(.list-empty)'));
     if (!cards.length) return;
     list.dataset.grouping = '1';
     var map = brands();
