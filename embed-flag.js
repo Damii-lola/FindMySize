@@ -1,33 +1,14 @@
-/* Marks the page as the store popup before anything is painted, and applies the
-   brand's design before the card is shown so the default look never flashes. */
+/* Marks the page as the store popup before anything is painted, so the standalone
+   page's own chrome (footer, ticker, section) never flashes inside a store's popup.
+   size.js does the rest of the embed set-up once it runs. */
 if (new URLSearchParams(location.search).get('embed') === '1') {
   var root = document.documentElement;
   root.classList.add('embed');
+  // A store's own look arrives a moment after the page does. Hold the card back until it
+  // has (or a couple of seconds have passed), so a popup never shows the default look and
+  // then jumps. The dashboard's preview (?preview=) draws its own settings and never waits.
   if (/[?&]g=/.test(location.search) && !/[?&]preview=/.test(location.search)) {
     root.classList.add('pu-pending');
-    var code = new URLSearchParams(location.search).get('g');
-    if (code) {
-      fetch('https://findmysize.onrender.com/api/charts/code/' + encodeURIComponent(code))
-        .then(function (r) { return r.ok ? r.json() : null; })
-        .then(function (chart) {
-          var popup = chart && chart.popup;
-          if (popup && typeof popup === 'object') {
-            var theme = popup.theme || {};
-            var style = document.getElementById('fms-brand-look') || document.createElement('style');
-            style.id = 'fms-brand-look';
-            var bg = theme.background || '#221a15';
-            var text = theme.text || '#f5e9d6';
-            var accent = theme.accent || '#f0521f';
-            var radius = theme.radius != null ? theme.radius : 28;
-            style.textContent = ':root{--pu-bg:' + bg + ';--pu-text:' + text + ';--pu-accent:' + accent + ';--pu-radius:' + radius + 'px}'
-              + 'html.embed body.app .stage{background:' + bg + ';color:' + text + ';border-radius:' + radius + 'px}';
-            document.head.appendChild(style);
-          }
-          root.classList.remove('pu-pending');
-        })
-        .catch(function () { root.classList.remove('pu-pending'); });
-    } else {
-      root.classList.remove('pu-pending');
-    }
+    setTimeout(function () { root.classList.remove('pu-pending'); }, 2500);
   }
 }
