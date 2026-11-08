@@ -17,12 +17,13 @@
     <script src="/FindMySize/embed-flag.js"></script>
     <!-- The page around the scanner. Every rule in it is under html:not(.embed). -->
     <script src="/FindMySize/theme-init.js"></script>
-    <script type="module" crossorigin src="/FindMySize/assets/size-IzVh_yzn.js"></script>
-    <link rel="modulepreload" crossorigin href="/FindMySize/assets/api-ly8zSwfD.js">
-    <link rel="modulepreload" crossorigin href="/FindMySize/assets/nav-DrZoJVz6.js">
-    <link rel="modulepreload" crossorigin href="/FindMySize/assets/free-tier-BaMmXEmV.js">
-    <link rel="modulepreload" crossorigin href="/FindMySize/assets/popup-config-6RXh3-Hr.js">
-    <link rel="stylesheet" crossorigin href="/FindMySize/assets/size-RjW1ykZQ.css">
+    <script type="module" crossorigin src="/FindMySize/assets/size-CHDawR0F.js"></script>
+    <link rel="modulepreload" crossorigin href="/FindMySize/assets/modulepreload-polyfill-B5Qt9EMX.js">
+    <link rel="modulepreload" crossorigin href="/FindMySize/assets/api-CD19Ed_l.js">
+    <link rel="modulepreload" crossorigin href="/FindMySize/assets/nav-Cthv8JGx.js">
+    <link rel="modulepreload" crossorigin href="/FindMySize/assets/free-tier-PrACVnm6.js">
+    <link rel="modulepreload" crossorigin href="/FindMySize/assets/popup-config-pcfu7MeG.js">
+    <link rel="stylesheet" crossorigin href="/FindMySize/assets/size-DS-nIEbg.css">
   </head>
   <body class="app">
     <!-- The sky. Three fields of stars, each on its own tile, each sliding one
@@ -74,19 +75,11 @@
       <header class="intro" id="intro">
         <h1>Find your size</h1>
         <p class="lead">
-          Record or upload a video of yourself turning one full circle.
-          The video lets us calculate your best clothing size.
+          Record a 360&deg; video of yourself, turning slowly all the way around:
+          stand still, whole body in frame, arms a hand's width from your sides
+          &mdash; that gap is how we tell your arms from your torso. Max 30 seconds.
         </p>
       </header>
-
-      <aside class="free-tier" id="free-tier" role="note" hidden>
-        <p class="free-tier-kicker">Free on this device</p>
-        <p class="free-tier-body">
-          Without an account you have <strong><span id="free-scans">3</span> scans left</strong> on this device.
-          These limits reset per device — a new phone or browser starts fresh.
-          Register to get unlimited scans, unlimited size charts, and unlimited popup uses.
-        </p>
-      </aside>
 
       <!-- The garment from the store's link, when there is one. Said on the
            first screen, because a shopper who followed a product link should be
@@ -332,7 +325,6 @@
             <a href="/FindMySize/">Home</a>
             <a href="/FindMySize/size/">Sizing</a>
             <a href="/FindMySize/dashboard/">Dashboard</a>
-            <a href="/FindMySize/pricing/">Pricing</a>
           </nav>
         </div>
         <hr />
@@ -348,6 +340,7 @@
          itself is heavy (a pose model, three.js, the lab), so src/size.js
          settles the account question and only then pulls the app in. -->
   <script src="/FindMySize/chat.js" defer></script>
+<script src="/FindMySize/admin-gate.js"></script>
 </body>
 </html>
 

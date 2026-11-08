@@ -19,12 +19,14 @@
     <link rel="apple-touch-icon" href="/FindMySize/apple-touch-icon.png" />
     <script src="/FindMySize/theme-init.js"></script>
     <script src="/FindMySize/reveal.js"></script>
-    <script type="module" crossorigin src="/FindMySize/assets/dashboard-BGMajbOI.js"></script>
-    <link rel="modulepreload" crossorigin href="/FindMySize/assets/api-ly8zSwfD.js">
-    <link rel="modulepreload" crossorigin href="/FindMySize/assets/nav-DrZoJVz6.js">
-    <link rel="modulepreload" crossorigin href="/FindMySize/assets/free-tier-BaMmXEmV.js">
-    <link rel="modulepreload" crossorigin href="/FindMySize/assets/popup-config-6RXh3-Hr.js">
-    <link rel="modulepreload" crossorigin href="/FindMySize/assets/charts-B_uPQ1LW.js">
+    <script type="module" crossorigin src="/FindMySize/assets/dashboard-CmBl8rcq.js"></script>
+    <link rel="modulepreload" crossorigin href="/FindMySize/assets/modulepreload-polyfill-B5Qt9EMX.js">
+    <link rel="modulepreload" crossorigin href="/FindMySize/assets/api-CD19Ed_l.js">
+    <link rel="modulepreload" crossorigin href="/FindMySize/assets/nav-Cthv8JGx.js">
+    <link rel="modulepreload" crossorigin href="/FindMySize/assets/free-tier-PrACVnm6.js">
+    <link rel="modulepreload" crossorigin href="/FindMySize/assets/subscriptions-BfyqPtFl.js">
+    <link rel="modulepreload" crossorigin href="/FindMySize/assets/popup-config-pcfu7MeG.js">
+    <link rel="modulepreload" crossorigin href="/FindMySize/assets/charts-CvqrfXAn.js">
     <link rel="stylesheet" crossorigin href="/FindMySize/assets/dashboard-BIDGNn9V.css">
     <link rel="stylesheet" crossorigin href="/FindMySize/assets/theme-B_KWcFXd.css">
   </head>
@@ -196,16 +198,16 @@
             <span class="ledger-index" aria-hidden="true">B</span>
             <h3 id="unsub-title">One flat price — then you can add charts</h3>
           </div>
-          <span class="ledger-badge">$150 / month · Unlimited charts</span>
+          <span class="ledger-badge"><s style="opacity:.6;margin-right:6px">$225</s> $125/month</span>
         </div>
         <p class="hint">
-          FindMySize is $150 per store per month, for unlimited clothing size
+          FindMySize is $125/month (was $225), for unlimited clothing size
           charts. Pay once on Selar, and every chart you type here is live on
           your product pages.
         </p>
         <div class="btn-row">
-          <a class="btn btn--primary" id="dash-go-pay" href="/FindMySize/pricing/">Subscribe $150 / month</a>
-          <a class="btn btn--ghost" href="/FindMySize/pricing/">See the price</a>
+          <a class="btn btn--primary" id="dash-go-pay" href="/FindMySize/register/">Subscribe $125/month</a>
+          <a class="btn btn--ghost" href="/FindMySize/register/">See the price</a>
         </div>
       </div>
     </section>
@@ -235,17 +237,6 @@
           </p>
         </div>
 
-        <div class="notice free-tier" id="free-tier" role="note">
-          <h3>Free on this device</h3>
-          <p>
-            Without an account you can save <strong>one size chart</strong> here.
-            That chart’s popup has <strong><span id="free-popups">5</span> uses left</strong>, then it turns off.
-            The Size page has <strong><span id="free-scans">3</span> scans left</strong>.
-            Scans and popup uses reset per device — a new phone or browser starts fresh.
-            Register to unlock unlimited charts, unlimited popup uses, and unlimited scans.
-          </p>
-        </div>
-
         <form class="ledger" id="chart-form" autocomplete="off" novalidate data-reveal>
           <div class="ledger-head">
             <div class="ledger-title">
@@ -257,16 +248,17 @@
 
           <p class="hint">
             The size names are yours &mdash; <em>XS&hellip;XXL</em>,
-            <em>38/40/42</em>, <em>Small</em>. Enter the <strong>body</strong>
-            numbers exactly as they appear on the brand's product page &mdash; measured flat across
-            the garment (pit-to-pit, half-chest). The scanner reads the shopper's body;
-            the engine converts garment numbers to a body window. Use a dash for a range: <em>34-36</em>.
+            <em>38/40/42</em>, <em>Small</em>. Enter the numbers exactly as they appear on the
+            brand's product page &mdash; measured flat across the garment (pit-to-pit, half-chest).
+            The scanner reads the shopper's body; the engine converts garment numbers to a body window.
+            Use a dash for a range: <em>34-36</em>.
           </p>
 
           <div class="field-grid">
             <label class="field field--wide">
               <span class="field-label">Brand</span>
-              <input id="chart-brand" type="text" maxlength="60" placeholder="Type a brand or pick one" autocomplete="off" />
+              <input id="chart-brand" type="text" maxlength="60" autocomplete="off" placeholder="Type a brand or pick one" />
+              <datalist id="brand-list"></datalist>
             </label>
             <label class="field field--wide">
               <span class="field-label">Garment</span>
@@ -289,7 +281,7 @@
             </label>
             <label class="field">
               <span class="field-label">Fit style</span>
-              <select id="chart-fit-style">
+              <select id="chart-fit-style" title="How close the garment is cut to the body">
                 <option value="fitted">Fitted &mdash; snug, little room</option>
                 <option value="regular" selected>Regular &mdash; classic, everyday</option>
                 <option value="relaxed">Relaxed &mdash; roomy, loose</option>
@@ -334,9 +326,9 @@
           </div>
           <div class="toolbar">
             <label class="search-field">
-              <span class="sr-only">Search garments</span>
+              <span class="sr-only">Search brands</span>
               <svg class="od-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg>
-              <input id="chart-search" type="search" placeholder="Search garments" autocomplete="off" />
+              <input id="chart-search" type="search" placeholder="Search brands" autocomplete="off" />
             </label>
             <label>
               <span class="sr-only">Sort garments</span>
@@ -489,7 +481,7 @@
           <a href="/FindMySize/">Home</a>
           <a href="/FindMySize/size/">Sizing</a>
           <a href="/FindMySize/dashboard/">Dashboard</a>
-          <a href="/FindMySize/pricing/">Pricing</a>
+          <a href="/FindMySize/register/">Pricing</a>
         </nav>
       </div>
       <div class="footer-rule" aria-hidden="true"></div>
@@ -528,8 +520,7 @@
     <!-- The popup script is loaded by src/dashboard.js the way a store loads it, so
          "Preview & Customise Popup" runs the real thing rather than a mock-up of it. -->
   <script src="/FindMySize/chat.js" defer></script>
-  <button id="dash-out" style="display:none" aria-hidden="true"></button>
-  <span id="dash-name" style="display:none"></span>
-  <span id="dash-mail" style="display:none"></span>
+<script src="/FindMySize/admin-gate.js"></script>
+<script src="/FindMySize/brand-charts.js"></script>
 </body>
 </html>

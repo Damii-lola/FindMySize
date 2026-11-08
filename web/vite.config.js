@@ -15,9 +15,16 @@ export default defineConfig({
     rollupOptions: {
       input: {
         // Home is the landing page
+        index: page('index.html'),
         size: page('size/index.html'),
         dashboard: page('dashboard/index.html'),
+        settings: page('settings/index.html'),
         auth: page('auth/index.html'),
+        register: page('register/index.html'),
+        registered: page('registered/index.html'),
+        shop: page('shop/index.html'),
+        privacy: page('privacy/index.html'),
+        terms: page('terms/index.html'),
       },
       output: { manualChunks: { three: ['three'], supabase: ['@supabase/supabase-js'] } },
     },

@@ -252,16 +252,12 @@
           <p class="hint">
             The size names are yours &mdash; <em>XS&hellip;XXL</em>,
             <em>38/40/42</em>, <em>Small</em>. Enter the <strong>body</strong>
-            numbers exactly as they appear on the brand's product page &mdash; measured flat across
-            the garment (pit-to-pit, half-chest). The scanner reads the shopper's body;
-            the engine converts garment numbers to a body window. Use a dash for a range: <em>34-36</em>.
+            measurements that fit each size (the chest that wears it, not the
+            garment's flat measurement). The scanner measures the body.
+            Use a dash for a range: <em>34-36</em> means this size fits anyone from 34 to 36.
           </p>
 
           <div class="field-grid">
-            <label class="field field--wide">
-              <span class="field-label">Brand</span>
-              <input id="chart-brand" type="text" maxlength="60" placeholder="Type a brand or pick one" autocomplete="off" />
-            </label>
             <label class="field field--wide">
               <span class="field-label">Garment</span>
               <input id="chart-name" type="text" maxlength="60" placeholder="Oxford Shirt" />
@@ -279,15 +275,6 @@
               <select id="chart-unit">
                 <option value="in">Inches</option>
                 <option value="cm">Centimetres</option>
-              </select>
-            </label>
-            <label class="field">
-              <span class="field-label">Fit style</span>
-              <select id="chart-fit-style">
-                <option value="fitted">Fitted &mdash; snug, little room</option>
-                <option value="regular" selected>Regular &mdash; classic, everyday</option>
-                <option value="relaxed">Relaxed &mdash; roomy, loose</option>
-                <option value="oversized">Oversized &mdash; boxy, oversized on purpose</option>
               </select>
             </label>
           </div>
@@ -523,8 +510,5 @@
          "Preview & Customise Popup" runs the real thing rather than a mock-up of it. -->
     <script type="module" src="/src/dashboard.js"></script>
   <script src="%BASE_URL%chat.js" defer></script>
-  <button id="dash-out" style="display:none" aria-hidden="true"></button>
-  <span id="dash-name" style="display:none"></span>
-  <span id="dash-mail" style="display:none"></span>
 </body>
 </html>
