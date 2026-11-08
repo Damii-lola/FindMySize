@@ -1,22 +1,11 @@
 /**
  * 3dGarments — the size finder a store drops onto its own product page.
  *
- * A shopper should never be sent to another site to find out what size to buy,
- * so this opens the scanner in a popup OVER the page the shopper is already on:
- * one button, one click, the scanner in a frame, and an ✕ straight back to the
- * product. The alternative — a link to our page — is a new tab that loses the
- * basket, which is the exact thing a store cannot afford.
- *
- * It is plain JavaScript with no build step and no dependencies, served from the
- * site root, so a store adds one <script> tag and nothing else. It runs on their
- * storefront, so it stays small, it puts its styles in one namespaced block, and
- * it touches nothing on their page except the node it was asked to.
- *
  * Usage:
- *   <script src="https://…/3dGarments/embed.js"
+ *   <script src="https://damii-lola.github.io/FindMySize/embed.js"
  *           data-chart="a1b2c3d4e5f6" data-label="Find my size"></script>
  *
- * Or, with a button of your own:
+ * Or with your own button:
  *   <button onclick="ThreeDG.open({ code: 'a1b2c3d4e5f6', name: 'Oxford Shirt' })">
  *     Find my size
  *   </button>
@@ -25,21 +14,15 @@
  * data-label  the button text. Default "Find my size".
  * data-name   the garment's name, for the button's title. Optional.
  * data-base   the site root, if this script is served from somewhere else.
+ *             Example: data-base="https://findmysize.onrender.com/"
  * data-float  "1" pins the button to the bottom-right corner instead of
  *             placing it in the page where the tag is.
- *
- * The tag can go anywhere — head, body, a template partial. A tag in the
- * <head> has nowhere to put a button (a <button> in a head is never rendered),
- * so it floats instead of disappearing. That was the one way this could be
- * pasted correctly and still show nothing.
  */
 (function () {
   'use strict';
 
   var script = document.currentScript || document.querySelector('script[src*="embed.js"]');
 
-  /** The site this file came from: the scanner lives beside it, so nothing here
-   *  hard-codes a domain and a copy of the site on another host just works. */
   function siteRoot() {
     try { return new URL('./', script.src).href; } catch (e) { return '/'; }
   }
@@ -47,8 +30,6 @@
     try { return new URL('./', script.src).origin; } catch (e) { return location.origin; }
   }
 
-  /** Turn a colour into a matching soft shadow. Hex colours get a real rgba
-   *  shadow; anything else falls back to a neutral one. */
   function shadowFor(color) {
     var m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(String(color).trim());
     if (!m) return 'rgba(0,0,0,.25)';
@@ -73,7 +54,7 @@
     '.threeDG-button svg{width:1.05rem;height:1.05rem;flex:0 0 auto}',
     '@keyframes threeDG-fade{from{opacity:0}to{opacity:1}}',
     '@keyframes threeDG-rise{from{opacity:0;transform:translateY(.8rem) scale(.985)}to{opacity:1;transform:none}}',
-    '@media (max-width:520px){.threeDG-overlay{padding:0}.threeDG-panel{width:100%;height:100%;border:0;border-radius:0}}',
+    '@media (max-width:520px){.threeDG-overlay{padding:.6rem}.threeDG-panel{width:100%;height:92%;border-radius:1.25rem}}',
     '@media (prefers-reduced-motion:reduce){.threeDG-overlay,.threeDG-panel{animation:none}}',
     '.threeDG-float{position:fixed;right:1.1rem;bottom:1.1rem;z-index:2147482000}',
     '.threeDG-float.threeDG-left{left:1.1rem;right:auto}',
@@ -98,17 +79,49 @@
     if (event.key === 'Escape') close();
   }
 
-  /**
-   * The popup itself. Only one is ever open: opening a second one closes the
-   * first, so a double tap cannot leave two scanners stacked on the page.
-   */
   function open(opts) {
     var code = (opts && opts.code) || '';
     if (!code) return;
+    var known = ready[code];
+    openNow(opts);
+    if (known && known.popup && known.popup.button) applyDesign(known.popup.button);
+    if (known && known.popup && known.popup.theme && panelEl) panelEl.style.background = known.popup.theme.background || '';
+    fetch('https://findmysize.onrender.com/api/charts/code/' + encodeURIComponent(code))
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (chart) {
+        if (!chart) return;
+        var btn = chart.popup && chart.popup.button;
+        if (btn) applyDesign(btn);
+      })
+      .catch(function () {});
+  }
+
+  function applyDesign(btn) {
+    var button = document.querySelector('.threeDG-button');
+    if (!button || !btn) return;
+    if (btn.bg) {
+      button.style.setProperty('--threeDG-accent', btn.bg);
+      button.style.setProperty('--threeDG-shadow', shadowFor(btn.bg));
+    }
+    if (btn.textColor) button.style.setProperty('--threeDG-text', btn.textColor);
+    if (btn.radius != null) button.style.setProperty('--threeDG-radius', btn.radius + 'px');
+    if (btn.label) {
+      var label = button.querySelector('span');
+      if (label) label.textContent = btn.label;
+    }
+  }
+
+  function openNow(opts) {
+    var code = (opts && opts.code) || '';
     close();
     ensureStyles();
 
+    // Use explicit data-base if given, otherwise fall back to Render when served from GitHub Pages.
     var base = (opts && opts.base) || siteRoot();
+    if (/github\.io/.test(base) && !opts.base) {
+      base = 'https://findmysize.onrender.com/';
+    }
+
     opener = document.activeElement;
 
     overlay = document.createElement('div');
@@ -125,10 +138,6 @@
     var frame = document.createElement('iframe');
     frame.className = 'threeDG-frame';
     frame.title = 'Find your size';
-    // The clip is recorded in the phone's own camera app (an <input capture>),
-    // not with getUserMedia, so the frame asks for no microphone. `camera` stays
-    // for browsers that gate the capture input on it, and fullscreen is used by
-    // the review step.
     frame.setAttribute('allow', 'camera; fullscreen');
     frame.setAttribute('allowfullscreen', '');
     frame.src = base + 'size/?g=' + encodeURIComponent(code) + '&embed=1';
@@ -144,9 +153,6 @@
     panel.appendChild(closeBtn);
     overlay.appendChild(panel);
 
-    // The page underneath belongs to the store: it is frozen while the popup is
-    // up, so a scroll gesture inside the scanner cannot drag the product page
-    // around behind it. Both values are put back exactly as they were found.
     scrollY = window.scrollY || 0;
     bodyOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -171,14 +177,10 @@
     opener = null;
   }
 
-  // The scanner can close the popup itself (after a result, say an explicit
-  // "done"), and it is only ever listened to from our own origin.
   window.addEventListener('message', function (event) {
     if (!overlay || event.origin !== siteOrigin()) return;
     var data = event.data;
     if (data && data.source === '3dg' && data.type === 'close') close();
-    // The card inside the popup says what colour and corners it has been given (the store's
-    // own choice), and the frame around it follows, so no stray corner of the old colour shows.
     if (data && data.source === '3dg' && data.type === 'frame' && panelEl) {
       if (/^#[0-9a-f]{6}$/i.test(data.background || '')) panelEl.style.setProperty('--threeDG-panel-bg', data.background);
       var radius = Number(data.radius);
@@ -188,20 +190,16 @@
 
   var CAMERA = 'M4 8.5A2.5 2.5 0 0 1 6.5 6h1.2l1-1.6A2 2 0 0 1 10.4 3.5h3.2a2 2 0 0 1 1.7 1L16.3 6h1.2A2.5 2.5 0 0 1 20 8.5v8A2.5 2.5 0 0 1 17.5 19h-11A2.5 2.5 0 0 1 4 16.5zM12 8.6a3.6 3.6 0 1 0 0 7.2 3.6 3.6 0 0 0 0-7.2z';
 
-  /** A button of the store's own, wired to the popup. */
   function mount(target, opts) {
     ensureStyles();
     var button = document.createElement('button');
     button.type = 'button';
     button.className = 'threeDG-button';
     if (opts && opts.name) button.title = opts.name;
-    // A store can recolour the button with data-color="#1a2b3c" (or any CSS
-    // colour). The default is the brand orange; everything else stays the same.
     if (opts && opts.color) {
       button.style.setProperty('--threeDG-accent', opts.color);
       button.style.setProperty('--threeDG-shadow', shadowFor(opts.color));
     }
-    // data-text-color: the label's colour. data-radius: the corners, in px (0 = square, 32 = pill).
     if (opts && opts.textColor) button.style.setProperty('--threeDG-text', opts.textColor);
     var radius = opts && opts.radius !== '' && opts.radius != null ? Number(opts.radius) : NaN;
     if (isFinite(radius)) button.style.setProperty('--threeDG-radius', Math.max(0, Math.min(32, radius)) + 'px');
@@ -223,9 +221,6 @@
       return button;
     }
 
-    // Where the tag sits decides where the button goes. A tag in the <head> —
-    // which is where a script tag normally goes — has no rendered place to put
-    // one, so it becomes a floating button instead of an invisible element.
     var parent = script && script.parentNode;
     var inHead = !parent || parent === document.head || parent.nodeName === 'HEAD';
     if ((opts && opts.float) || inHead) {
@@ -241,29 +236,44 @@
 
   window.ThreeDG = { open: open, close: close, mount: mount };
 
-  // A tag with a code asks for a button; a tag without one is just here to
-  // publish ThreeDG, which is what the dashboard uses to preview a chart.
-  // The tag may sit in the <head>, where document.body does not exist yet, so
-  // the mount waits for the body rather than attaching to <html> and vanishing
-  // into a place no stylesheet reaches.
+  var ready = {};
   function autoMount() {
     if (!script) return;
     var spec = script.dataset || {};
     var code = spec.chart || spec.code || '';
     if (!code) return;
-    mount(null, {
+
+    // MOUNT THE BUTTON IMMEDIATELY — don't wait for the fetch.
+    var btn = mount(null, {
       code: code,
       name: spec.name || '',
       label: spec.label || 'Find My Size',
-      base: spec.base || '',
-      color: spec.color || spec.accent || '',
+      color: spec.color || '',
       textColor: spec.textColor || '',
       radius: spec.radius || '',
       side: spec.side === 'left' ? 'left' : 'right',
-      // Floating is the default: a tag at the top of <body> becomes a FAB.
-      // Only data-float="0" pins it inline instead.
       float: spec.float !== '0' && spec.float !== 'false',
+      base: spec.base || '',
     });
+
+    // Then fetch chart design in the background and apply it when ready.
+    fetch('https://findmysize.onrender.com/api/charts/code/' + encodeURIComponent(code))
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (chart) {
+        if (chart) ready[code] = chart;
+        var dBtn = (chart && chart.popup && chart.popup.button) || {};
+        if (dBtn.bg) {
+          btn.style.setProperty('--threeDG-accent', dBtn.bg);
+          btn.style.setProperty('--threeDG-shadow', shadowFor(dBtn.bg));
+        }
+        if (dBtn.textColor) btn.style.setProperty('--threeDG-text', dBtn.textColor);
+        if (dBtn.radius != null) btn.style.setProperty('--threeDG-radius', dBtn.radius + 'px');
+        if (dBtn.label) {
+          var label = btn.querySelector('span');
+          if (label) label.textContent = dBtn.label;
+        }
+      })
+      .catch(function () {});
   }
   if (document.body) autoMount();
   else document.addEventListener('DOMContentLoaded', autoMount, { once: true });
