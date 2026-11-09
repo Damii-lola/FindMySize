@@ -184,31 +184,17 @@ payRoutes.post('/wavy-checkout', ah(async (req, res) => {
     }).then(() => {}).catch((err) => console.warn('[wavy] pending store failed', err.message));
   }
 
-  // Get or auto-create the $125/month recurring plan, then subscribe this email to it
-  const planId = await getOrCreateWavyPlan(secret);
+  // Wavy hosted checkout — their API isn't reachable server-to-server.
+  // WAVY_CHECKOUT_URL is the subscription plan link from your Wavy dashboard.
+  // We append the customer email so Wavy pre-fills their checkout form.
+  const checkoutUrl = config.wavyCheckoutUrl;
+  if (!checkoutUrl) throw new HttpError(503, 'WAVY_CHECKOUT_URL is not configured — paste your Wavy subscription link into Render env vars');
 
-  const subscribeUrl = `${config.wavyApiBase}/api/payments/subscriptions/plans/${planId}/subscribe`;
-  console.log('[wavy] subscribing', email, 'to plan', planId);
-  const sub = await wavyFetch(subscribeUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${secret}` },
-    body: JSON.stringify({
-      email,
-      redirect_url: `${site}/pay/success.html?ref=${reference}`,
-      cancel_url: `${site}/pay/`,
-      metadata: { reference },
-    }),
-  });
-  const subData = await sub.json().catch(() => ({}));
-  console.log('[wavy] subscribe response', sub.status, JSON.stringify(subData).slice(0, 400));
-  const payUrl = subData.payment_link || subData.data?.payment_link
-    || subData.checkout_url || subData.data?.checkout_url
-    || subData.url || subData.data?.url
-    || subData.link || subData.data?.link;
-  if (!sub.ok || !payUrl) {
-    throw new HttpError(sub.status || 502, subData.error || subData.message || subData.data?.message || 'Could not start subscription checkout');
-  }
-  res.json({ url: payUrl, reference });
+  const url = new URL(checkoutUrl);
+  url.searchParams.set('email', email);
+  url.searchParams.set('ref', reference);
+  console.log('[wavy] redirecting', email, 'to hosted checkout');
+  res.json({ url: url.toString(), reference });
 }));
 
 async function wavyTxPaid(reference) {
