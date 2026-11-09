@@ -173,7 +173,7 @@ payRoutes.post('/wavy-checkout', ah(async (req, res) => {
   if (!email || !email.includes('@')) throw new HttpError(400, 'Enter a valid email');
 
   const reference = `fms_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-  const amount = 125;
+  const amount = 450;
   const site = 'https://damii-lola.github.io/FindMySize';
 
   pendingPays.set(reference, { email, amount, created: Date.now() });
@@ -184,17 +184,32 @@ payRoutes.post('/wavy-checkout', ah(async (req, res) => {
     }).then(() => {}).catch((err) => console.warn('[wavy] pending store failed', err.message));
   }
 
-  // Wavy hosted checkout — their API isn't reachable server-to-server.
-  // WAVY_CHECKOUT_URL is the subscription plan link from your Wavy dashboard.
-  // We append the customer email so Wavy pre-fills their checkout form.
-  const checkoutUrl = config.wavyCheckoutUrl;
-  if (!checkoutUrl) throw new HttpError(503, 'WAVY_CHECKOUT_URL is not configured — paste your Wavy subscription link into Render env vars');
-
-  const url = new URL(checkoutUrl);
-  url.searchParams.set('email', email);
-  url.searchParams.set('ref', reference);
-  console.log('[wavy] redirecting', email, 'to hosted checkout');
-  res.json({ url: url.toString(), reference });
+  // One-time $450 payment via Wavy gateway checkout API
+  const checkoutEndpoint = `${config.wavyApiBase}/api/gateway/v1/checkout`;
+  console.log('[wavy] creating $450 checkout for', email, 'ref', reference);
+  const sub = await wavyFetch(checkoutEndpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${secret}` },
+    body: JSON.stringify({
+      amount: 450,
+      currency: 'USD',
+      email,
+      description: 'FindMySize — one-time setup',
+      merchant_reference: reference,
+      success_url: `${site}/pay/success.html?ref=${reference}`,
+      cancel_url: `${site}/pay/`,
+    }),
+  });
+  const subData = await sub.json().catch(() => ({}));
+  console.log('[wavy] checkout response', sub.status, JSON.stringify(subData).slice(0, 400));
+  const payUrl = subData.payment_link || subData.data?.payment_link
+    || subData.checkout_url || subData.data?.checkout_url
+    || subData.url || subData.data?.url
+    || subData.link || subData.data?.link;
+  if (!sub.ok || !payUrl) {
+    throw new HttpError(sub.status || 502, subData.error || subData.message || subData.data?.message || 'Could not create Wavy checkout');
+  }
+  res.json({ url: payUrl, reference });
 }));
 
 async function wavyTxPaid(reference) {
