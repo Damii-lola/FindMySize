@@ -82,3 +82,8 @@ alter table public.size_charts add column if not exists popup jsonb not null def
 alter table public.size_charts alter column user_id drop not null;
 
 alter table public.size_charts add column if not exists popup_uses int not null default 0;
+
+-- Brand activation payment tracking
+alter table public.brand_activations add column if not exists paid_at timestamptz;
+alter table public.brand_activations add column if not exists expires_at timestamptz;
+alter table public.brand_activations add column if not exists email text;

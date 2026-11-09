@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Monitor — FindMySize</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23f0521f'/%3E%3Cg transform='rotate(45 16 16)'%3E%3Crect x='12.5' y='6' width='7' height='3.2' rx='1' fill='%23fdf7ea'/%3E%3Crect x='12.5' y='9.2' width='7' height='1.4' fill='%23f0521f'/%3E%3Crect x='12.5' y='10.6' width='7' height='12.2' rx='0.6' fill='%23fdf7ea'/%3E%3Cpath d='M12.5 22.8h7L16 28z' fill='%23fdf7ea'/%3E%3Cpath d='M14.9 26.3h2.2L16 28z' fill='%23191411'/%3E%3C/g%3E%3C/svg%3E" />
+  <style>
+    :root {
+      --bg: #0f0f0f;
+      --surface: #1a1a1a;
+      --border: #2a2a2a;
+      --text: #f0ede8;
+      --muted: #888;
+      --accent: #f0521f;
+      --green: #22c55e;
+      --yellow: #f59e0b;
+      --red: #ef4444;
+      --radius: 10px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: system-ui, sans-serif; min-height: 100vh; }
+    header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 24px; border-bottom: 1px solid var(--border);
+      position: sticky; top: 0; background: var(--bg); z-index: 10;
+    }
+    .logo { font-weight: 700; font-size: 1.1rem; color: var(--accent); }
+    .header-right { display: flex; align-items: center; gap: 12px; }
+    #refresh-btn {
+      background: var(--surface); border: 1px solid var(--border); color: var(--text);
+      padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 0.85rem;
+    }
+    #refresh-btn:hover { border-color: var(--accent); }
+    #last-updated { font-size: 0.75rem; color: var(--muted); }
+
+    main { max-width: 1000px; margin: 0 auto; padding: 24px 16px; }
+
+    .summary-row {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 28px;
+    }
+    .stat-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 16px 20px;
+    }
+    .stat-card .label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+    .stat-card .value { font-size: 2rem; font-weight: 700; margin-top: 4px; }
+    .stat-card.red .value { color: var(--red); }
+    .stat-card.yellow .value { color: var(--yellow); }
+    .stat-card.green .value { color: var(--green); }
+
+    h2 { font-size: 1rem; color: var(--muted); margin-bottom: 12px; text-transform: uppercase; letter-spacing: .06em; }
+
+    .brand-list { display: flex; flex-direction: column; gap: 10px; }
+
+    .brand-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 16px 20px; display: flex; align-items: center; gap: 16px;
+    }
+    .brand-card.expired { border-color: var(--red); }
+    .brand-card.expiring { border-color: var(--yellow); }
+    .brand-card.ok { border-color: var(--border); }
+
+    .status-dot {
+      width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+    }
+    .status-dot.expired { background: var(--red); box-shadow: 0 0 6px var(--red); }
+    .status-dot.expiring { background: var(--yellow); box-shadow: 0 0 6px var(--yellow); }
+    .status-dot.ok { background: var(--green); }
+    .status-dot.unknown { background: var(--muted); }
+
+    .brand-info { flex: 1; min-width: 0; }
+    .brand-name { font-weight: 600; font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .brand-email { font-size: 0.8rem; color: var(--muted); margin-top: 2px; }
+
+    .brand-dates { text-align: right; flex-shrink: 0; }
+    .days-left { font-size: 1.1rem; font-weight: 700; }
+    .days-left.expired { color: var(--red); }
+    .days-left.expiring { color: var(--yellow); }
+    .days-left.ok { color: var(--green); }
+    .days-left.unknown { color: var(--muted); }
+    .expire-date { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
+
+    .ping-btn {
+      background: transparent; border: 1px solid var(--border); color: var(--muted);
+      padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .ping-btn:hover { border-color: var(--accent); color: var(--text); }
+    .ping-btn.sent { border-color: var(--green); color: var(--green); pointer-events: none; }
+
+    .empty { text-align: center; padding: 60px 20px; color: var(--muted); }
+
+    /* Login overlay */
+    #login-overlay {
+      position: fixed; inset: 0; background: var(--bg);
+      display: flex; align-items: center; justify-content: center; z-index: 100;
+    }
+    .login-box {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+      padding: 32px; width: 100%; max-width: 360px;
+    }
+    .login-box h1 { font-size: 1.3rem; margin-bottom: 6px; }
+    .login-box p { color: var(--muted); font-size: 0.9rem; margin-bottom: 24px; }
+    .login-box input {
+      width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+      color: var(--text); padding: 10px 14px; font-size: 0.95rem; margin-bottom: 12px;
+    }
+    .login-box input:focus { outline: none; border-color: var(--accent); }
+    .login-box button {
+      width: 100%; background: var(--accent); border: none; color: #fff;
+      padding: 11px; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer;
+    }
+    .login-box button:hover { opacity: 0.9; }
+    #login-error { color: var(--red); font-size: 0.85rem; margin-top: 10px; min-height: 20px; }
+
+    @media (max-width: 600px) {
+      .summary-row { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+      .stat-card { padding: 12px; }
+      .stat-card .value { font-size: 1.5rem; }
+      .brand-card { flex-wrap: wrap; gap: 10px; }
+      .brand-dates { text-align: left; }
+      .ping-btn { width: 100%; text-align: center; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="login-overlay">
+  <div class="login-box">
+    <h1>Monitor</h1>
+    <p>Admin access only</p>
+    <input id="login-email" type="email" placeholder="Email" autocomplete="email" />
+    <input id="login-pass" type="password" placeholder="Password" autocomplete="current-password" />
+    <button id="login-btn">Log in</button>
+    <div id="login-error"></div>
+  </div>
+</div>
+
+<header>
+  <div class="logo">FindMySize Monitor</div>
+  <div class="header-right">
+    <span id="last-updated"></span>
+    <button id="refresh-btn">↻ Refresh</button>
+  </div>
+</header>
+
+<main>
+  <div class="summary-row">
+    <div class="stat-card red">
+      <div class="label">Expired</div>
+      <div class="value" id="count-expired">—</div>
+    </div>
+    <div class="stat-card yellow">
+      <div class="label">Expiring ≤5d</div>
+      <div class="value" id="count-expiring">—</div>
+    </div>
+    <div class="stat-card green">
+      <div class="label">Active</div>
+      <div class="value" id="count-active">—</div>
+    </div>
+  </div>
+
+  <h2>All Brands</h2>
+  <div class="brand-list" id="brand-list">
+    <div class="empty">Loading…</div>
+  </div>
+</main>
+
+<script>
+const API = 'https://findmysize.onrender.com/api/pay';
+let token = localStorage.getItem('fms-admin') || '';
+
+// Auto-login if token exists
+if (token) loadMonitor();
+
+document.getElementById('login-btn').addEventListener('click', async () => {
+  const email = document.getElementById('login-email').value.trim();
+  const pass = document.getElementById('login-pass').value;
+  const err = document.getElementById('login-error');
+  err.textContent = 'Logging in…';
+  try {
+    const r = await fetch('https://findmysize.onrender.com/api/auth/admin-login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password: pass }),
+    });
+    const d = await r.json();
+    if (!r.ok || !d.token) throw new Error(d.error || 'Login failed');
+    token = d.token;
+    localStorage.setItem('fms-admin', token);
+    document.getElementById('login-overlay').style.display = 'none';
+    loadMonitor();
+  } catch (e) {
+    err.textContent = e.message;
+  }
+});
+
+document.getElementById('login-email').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') document.getElementById('login-pass').focus();
+});
+document.getElementById('login-pass').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') document.getElementById('login-btn').click();
+});
+
+document.getElementById('refresh-btn').addEventListener('click', loadMonitor);
+
+async function loadMonitor() {
+  try {
+    const r = await fetch(`${API}/monitor`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (r.status === 401) {
+      document.getElementById('login-overlay').style.display = 'flex';
+      return;
+    }
+    const data = await r.json();
+    document.getElementById('login-overlay').style.display = 'none';
+    renderBrands(data.brands || []);
+    document.getElementById('last-updated').textContent =
+      'Updated ' + new Date().toLocaleTimeString();
+  } catch (e) {
+    document.getElementById('brand-list').innerHTML =
+      `<div class="empty">Failed to load: ${e.message}</div>`;
+  }
+}
+
+function renderBrands(brands) {
+  const expired = brands.filter(b => b.expired).length;
+  const expiring = brands.filter(b => b.expiringSoon).length;
+  const active = brands.filter(b => !b.expired && b.expiresAt).length;
+
+  document.getElementById('count-expired').textContent = expired;
+  document.getElementById('count-expiring').textContent = expiring;
+  document.getElementById('count-active').textContent = active;
+
+  if (!brands.length) {
+    document.getElementById('brand-list').innerHTML =
+      '<div class="empty">No brands activated yet.</div>';
+    return;
+  }
+
+  document.getElementById('brand-list').innerHTML = brands.map(b => {
+    const cls = b.expired ? 'expired' : b.expiringSoon ? 'expiring' : 'ok';
+    const dotCls = b.expiresAt ? cls : 'unknown';
+
+    let daysLabel;
+    if (b.daysLeft === null) daysLabel = { text: 'No expiry set', cls: 'unknown' };
+    else if (b.expired) daysLabel = { text: `Expired ${Math.abs(b.daysLeft)}d ago`, cls: 'expired' };
+    else if (b.daysLeft === 0) daysLabel = { text: 'Expires today', cls: 'expiring' };
+    else daysLabel = { text: `${b.daysLeft}d left`, cls: cls };
+
+    const expireStr = b.expiresAt
+      ? new Date(b.expiresAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+      : '—';
+
+    const pingId = `ping-${b.brand.replace(/\W/g, '_')}`;
+
+    return `<div class="brand-card ${cls}">
+      <div class="status-dot ${dotCls}"></div>
+      <div class="brand-info">
+        <div class="brand-name">${escHtml(b.name || b.brand)}</div>
+        ${b.email ? `<div class="brand-email">${escHtml(b.email)}</div>` : ''}
+      </div>
+      <div class="brand-dates">
+        <div class="days-left ${daysLabel.cls}">${daysLabel.text}</div>
+        <div class="expire-date">${b.expiresAt ? 'Expires ' + expireStr : ''}</div>
+      </div>
+      ${b.email ? `<button class="ping-btn" id="${pingId}" data-email="${escHtml(b.email)}" data-brand="${escHtml(b.name || b.brand)}">Ping</button>` : ''}
+    </div>`;
+  }).join('');
+
+  // Wire ping buttons
+  document.querySelectorAll('.ping-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const email = btn.dataset.email;
+      const brand = btn.dataset.brand;
+      btn.textContent = 'Sending…';
+      btn.disabled = true;
+      try {
+        const r = await fetch(`${API}/monitor-ping`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ email, brand }),
+        });
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error || 'Failed');
+        btn.textContent = '✓ Sent';
+        btn.classList.add('sent');
+      } catch (e) {
+        btn.textContent = 'Failed';
+        btn.disabled = false;
+        setTimeout(() => { btn.textContent = 'Ping'; btn.disabled = false; }, 2000);
+      }
+    });
+  });
+}
+
+function escHtml(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Auto-refresh every 5 minutes
+setInterval(loadMonitor, 5 * 60 * 1000);
+</script>
+</body>
+</html>

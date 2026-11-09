@@ -91,6 +91,7 @@ export const config = Object.freeze({
   wavyPublishableKey: process.env.WAVY_PUBLISHABLE_KEY || '',
   wavyCheckoutUrl: process.env.WAVY_CHECKOUT_URL || '',
   wavyApiBase: (process.env.WAVY_API_BASE || 'https://api.wavy.ng').replace(/\/$/, ''),
+  resendApiKey: process.env.RESEND_API_KEY || '',
   adminEmail: (process.env.ADMIN_EMAIL || '').toLowerCase().trim(),
   adminUser: (process.env.ADMIN_USERNAME || '').trim(),
   adminPassword: process.env.ADMIN_PASSWORD || '',

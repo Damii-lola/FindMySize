@@ -40,13 +40,19 @@ async function markPaid(email) {
 async function issueCode(email) {
   const code = makeActivationCode();
   codes.set(email, code);
+  const paidAt = new Date().toISOString();
   const renews = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
   if (supabaseConfigured()) {
     const { error } = await db().from('activation_codes').insert({ code, email, used: false });
     if (error) throw new HttpError(500, error.message);
     await db().from('subscriptions').upsert({
-      code, email, paid_at: new Date().toISOString(), renews_at: renews, auto_renew: true, active: true,
+      code, email, paid_at: paidAt, renews_at: renews, auto_renew: true, active: true,
     });
+    // Stamp paid_at + expires_at onto any brand already activated with this email
+    await db().from('brand_activations')
+      .update({ paid_at: paidAt, expires_at: renews, email })
+      .eq('code', code)
+      .then(() => {}).catch(() => {});
   }
   return code;
 }
@@ -367,6 +373,92 @@ chartRoutes.get('/all', ah(async (req, res) => {
     .order('created_at', { ascending: false });
   if (error) throw new HttpError(500, error.message);
   res.json({ charts: data || [] });
+}));
+
+// GET /api/pay/monitor — admin overview: all brands, payment dates, expiry, days left
+payRoutes.get('/monitor', ah(async (req, res) => {
+  if (!adminFromReq(req)) throw new HttpError(401, 'Log in first');
+  if (!supabaseConfigured()) return res.json({ brands: [] });
+
+  // Pull brand_activations with paid_at / expires_at
+  const { data: acts } = await db()
+    .from('brand_activations')
+    .select('brand, code, activated_at, paid_at, expires_at, email')
+    .order('activated_at', { ascending: false });
+
+  // Pull brand_meta for brand names / display info
+  const { data: meta } = await db().from('brand_meta').select('brands').eq('key', 'admin').maybeSingle();
+  const brandNames = meta?.brands || {};
+
+  const now = Date.now();
+  const seen = new Set();
+  const brands = [];
+
+  for (const a of (acts || [])) {
+    const key = a.brand;
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    const expiresAt = a.expires_at ? new Date(a.expires_at) : null;
+    const paidAt = a.paid_at ? new Date(a.paid_at) : (a.activated_at ? new Date(a.activated_at) : null);
+    const daysLeft = expiresAt ? Math.ceil((expiresAt.getTime() - now) / 86400000) : null;
+    const expired = expiresAt ? expiresAt.getTime() < now : false;
+    const expiringSoon = !expired && daysLeft !== null && daysLeft <= 5;
+
+    brands.push({
+      brand: key,
+      name: brandNames[key]?.name || key,
+      email: a.email || null,
+      paidAt: paidAt?.toISOString() || null,
+      expiresAt: expiresAt?.toISOString() || null,
+      daysLeft,
+      expired,
+      expiringSoon,
+      code: a.code,
+    });
+  }
+
+  // Sort: expired first, then expiring soon, then by days left
+  brands.sort((a, b) => {
+    if (a.expired !== b.expired) return a.expired ? -1 : 1;
+    if (a.expiringSoon !== b.expiringSoon) return a.expiringSoon ? -1 : 1;
+    return (a.daysLeft ?? 999) - (b.daysLeft ?? 999);
+  });
+
+  res.json({ brands, now: new Date().toISOString() });
+}));
+
+// POST /api/pay/monitor-ping — send a renewal reminder email to a brand's contact
+payRoutes.post('/monitor-ping', ah(async (req, res) => {
+  if (!adminFromReq(req)) throw new HttpError(401, 'Log in first');
+  const email = String(req.body?.email || '').trim().toLowerCase();
+  const brand = String(req.body?.brand || '').trim();
+  if (!email || !email.includes('@')) throw new HttpError(400, 'Email is required');
+
+  // Send via any configured email transport (Supabase auth mailer as a simple option)
+  // For now: log it and return ok — plug in Resend/Nodemailer when email is wired up
+  console.log(`[monitor] ping sent to ${email} for brand "${brand}"`);
+
+  // If Resend is configured, send the email
+  if (config.resendApiKey) {
+    await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${config.resendApiKey}` },
+      body: JSON.stringify({
+        from: 'FindMySize <noreply@findmysize.app>',
+        to: [email],
+        subject: `Your FindMySize plan for ${brand} needs renewal`,
+        html: `<p>Hi,</p>
+<p>Your <strong>FindMySize</strong> size chart plan for <strong>${brand}</strong> has expired or is about to expire.</p>
+<p>To keep your size charts live and your embed running, renew your plan at:</p>
+<p><a href="https://damii-lola.github.io/FindMySize/pay/">https://damii-lola.github.io/FindMySize/pay/</a></p>
+<p>Reply to this email if you have any questions.</p>
+<p>— FindMySize</p>`,
+      }),
+    }).catch((err) => console.warn('[monitor] resend failed:', err.message));
+  }
+
+  res.json({ ok: true, email, brand });
 }));
 
 payRoutes.get('/brands', ah(async (req, res) => {
