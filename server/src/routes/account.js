@@ -78,33 +78,78 @@ payRoutes.post('/webhook', ah(async (req, res) => {
 }));
 
 
-// GET /api/pay/wavy-plans — diagnostic: list all plans on this Wavy account
+// In-memory plan ID cache — survives the process lifetime, resets on redeploy
+let _wavyPlanIdCache = null;
+
+// Find the existing FindMySize $125/month plan, or create it if it doesn't exist yet.
+// Returns the plan ID string.
+async function getOrCreateWavyPlan(secret) {
+  if (_wavyPlanIdCache) return _wavyPlanIdCache;
+
+  const base = config.wavyApiBase;
+  const headers = { 'Authorization': `Bearer ${secret}`, 'Content-Type': 'application/json' };
+
+  // 1. Try to list existing plans and find ours
+  const listRes = await fetch(`${base}/api/payments/subscriptions/plans`, { headers }).catch(() => null);
+  if (listRes?.ok) {
+    const listData = await listRes.json().catch(() => ({}));
+    const plans = listData.data || listData.plans || listData.results || (Array.isArray(listData) ? listData : []);
+    const existing = plans.find((p) => {
+      const name = String(p.name || p.plan_name || '').toLowerCase();
+      const amount = Number(p.amount || p.price || 0);
+      return name.includes('findmysize') || (amount === 125 && name.includes('month'));
+    });
+    if (existing) {
+      const id = existing._id || existing.id || existing.plan_id;
+      console.log('[wavy] found existing plan', id);
+      _wavyPlanIdCache = id;
+      return id;
+    }
+  }
+
+  // 2. Create the plan
+  console.log('[wavy] creating subscription plan');
+  const createRes = await fetch(`${base}/api/payments/subscriptions/plans`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      name: 'FindMySize Monthly',
+      amount: 125,
+      currency: 'USD',
+      interval: 'monthly',
+      description: 'FindMySize — size charts set up, embedded, and kept updated.',
+    }),
+  });
+  const createData = await createRes.json().catch(() => ({}));
+  console.log('[wavy] create plan response', createRes.status, JSON.stringify(createData).slice(0, 400));
+  if (!createRes.ok) {
+    throw new HttpError(createRes.status || 502, createData.error || createData.message || createData.data?.message || 'Could not create Wavy subscription plan');
+  }
+  const newId = (createData.data || createData)?._id
+    || (createData.data || createData)?.id
+    || (createData.data || createData)?.plan_id;
+  if (!newId) throw new HttpError(502, 'Wavy plan created but returned no ID');
+  console.log('[wavy] created plan', newId);
+  _wavyPlanIdCache = newId;
+  return newId;
+}
+
+// GET /api/pay/wavy-plans — diagnostic: show plan status and raw API responses
 payRoutes.get('/wavy-plans', ah(async (req, res) => {
   const secret = config.wavySecretKey;
   if (!secret) throw new HttpError(503, 'WAVY_SECRET_KEY not configured');
 
-  // Try both common endpoint shapes
-  const endpoints = [
-    `${config.wavyApiBase}/api/payments/subscriptions/plans`,
-    `${config.wavyApiBase}/api/v1/subscriptions/plans`,
-    `${config.wavyApiBase}/api/subscriptions/plans`,
-  ];
+  const base = config.wavyApiBase;
+  const headers = { 'Authorization': `Bearer ${secret}`, 'Content-Type': 'application/json' };
 
-  const results = [];
-  for (const url of endpoints) {
-    try {
-      const r = await fetch(url, {
-        headers: { 'Authorization': `Bearer ${secret}`, 'Content-Type': 'application/json' },
-      });
-      const body = await r.json().catch(() => ({}));
-      results.push({ url, status: r.status, body });
-      if (r.ok) break; // found it
-    } catch (err) {
-      results.push({ url, error: err.message });
-    }
-  }
+  const listRes = await fetch(`${base}/api/payments/subscriptions/plans`, { headers }).catch((err) => ({ _err: err.message }));
+  const listBody = listRes.json ? await listRes.json().catch(() => ({})) : listRes;
 
-  res.json({ configured_plan_id: config.wavyPlanId || null, results });
+  res.json({
+    cached_plan_id: _wavyPlanIdCache,
+    list_status: listRes.status,
+    plans: listBody,
+  });
 }));
 
 payRoutes.post('/wavy-checkout', ah(async (req, res) => {
@@ -126,26 +171,30 @@ payRoutes.post('/wavy-checkout', ah(async (req, res) => {
     }).then(() => {}).catch((err) => console.warn('[wavy] pending store failed', err.message));
   }
 
-  const planId = config.wavyPlanId;
-  if (!planId) throw new HttpError(503, 'Wavy plan ID is not configured — set WAVY_PLAN_ID on Render');
+  // Get or auto-create the $125/month recurring plan, then subscribe this email to it
+  const planId = await getOrCreateWavyPlan(secret);
 
-  // Create subscription payment link on the spot via Wavy API
   const subscribeUrl = `${config.wavyApiBase}/api/payments/subscriptions/plans/${planId}/subscribe`;
   console.log('[wavy] subscribing', email, 'to plan', planId);
   const sub = await fetch(subscribeUrl, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${secret}`,
-    },
-    body: JSON.stringify({ email, redirect_url: `${site}/pay/success.html`, metadata: { reference } }),
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${secret}` },
+    body: JSON.stringify({
+      email,
+      redirect_url: `${site}/pay/success.html?ref=${reference}`,
+      cancel_url: `${site}/pay/`,
+      metadata: { reference },
+    }),
   });
   const subData = await sub.json().catch(() => ({}));
   console.log('[wavy] subscribe response', sub.status, JSON.stringify(subData).slice(0, 400));
-  if (!sub.ok || !(subData.payment_link || subData.data?.payment_link || subData.url || subData.data?.url)) {
-    throw new HttpError(sub.status || 502, subData.error || subData.message || subData.data?.message || 'Could not start the subscription');
+  const payUrl = subData.payment_link || subData.data?.payment_link
+    || subData.checkout_url || subData.data?.checkout_url
+    || subData.url || subData.data?.url
+    || subData.link || subData.data?.link;
+  if (!sub.ok || !payUrl) {
+    throw new HttpError(sub.status || 502, subData.error || subData.message || subData.data?.message || 'Could not start subscription checkout');
   }
-  const payUrl = subData.payment_link || subData.data?.payment_link || subData.url || subData.data?.url;
   res.json({ url: payUrl, reference });
 }));
 
