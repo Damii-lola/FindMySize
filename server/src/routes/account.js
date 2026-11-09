@@ -179,7 +179,7 @@ payRoutes.post('/wavy-checkout', ah(async (req, res) => {
   if (!email || !email.includes('@')) throw new HttpError(400, 'Enter a valid email');
 
   const reference = `fms_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-  const amount = 450;
+  const amount = 125;
   const site = 'https://damii-lola.github.io/FindMySize';
 
   pendingPays.set(reference, { email, amount, created: Date.now() });
@@ -197,7 +197,7 @@ payRoutes.post('/wavy-checkout', ah(async (req, res) => {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${secret}` },
     body: JSON.stringify({
-      amount: 450,
+      amount: 125,
       currency: 'USD',
       email,
       description: 'FindMySize — one-time setup',
