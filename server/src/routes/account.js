@@ -80,58 +80,71 @@ payRoutes.post('/webhook', ah(async (req, res) => {
 
 // In-memory plan ID cache — survives the process lifetime, resets on redeploy
 let _wavyPlanIdCache = null;
+let _wavyPlanInflight = null; // deduplicates concurrent first-calls
+
+const WAVY_TIMEOUT_MS = 10_000; // 10 s — fail fast, never let a Wavy call hang the checkout
+
+function wavyFetch(url, opts = {}) {
+  return fetch(url, { signal: AbortSignal.timeout(WAVY_TIMEOUT_MS), ...opts });
+}
 
 // Find the existing FindMySize $125/month plan, or create it if it doesn't exist yet.
 // Returns the plan ID string.
 async function getOrCreateWavyPlan(secret) {
   if (_wavyPlanIdCache) return _wavyPlanIdCache;
+  // Deduplicate: if a plan-creation is already in flight, wait for it
+  if (_wavyPlanInflight) return _wavyPlanInflight;
 
-  const base = config.wavyApiBase;
-  const headers = { 'Authorization': `Bearer ${secret}`, 'Content-Type': 'application/json' };
+  _wavyPlanInflight = (async () => {
+    const base = config.wavyApiBase;
+    const headers = { 'Authorization': `Bearer ${secret}`, 'Content-Type': 'application/json' };
 
-  // 1. Try to list existing plans and find ours
-  const listRes = await fetch(`${base}/api/payments/subscriptions/plans`, { headers }).catch(() => null);
-  if (listRes?.ok) {
-    const listData = await listRes.json().catch(() => ({}));
-    const plans = listData.data || listData.plans || listData.results || (Array.isArray(listData) ? listData : []);
-    const existing = plans.find((p) => {
-      const name = String(p.name || p.plan_name || '').toLowerCase();
-      const amount = Number(p.amount || p.price || 0);
-      return name.includes('findmysize') || (amount === 125 && name.includes('month'));
-    });
-    if (existing) {
-      const id = existing._id || existing.id || existing.plan_id;
-      console.log('[wavy] found existing plan', id);
-      _wavyPlanIdCache = id;
-      return id;
+    // 1. Try to list existing plans and find ours
+    const listRes = await wavyFetch(`${base}/api/payments/subscriptions/plans`, { headers }).catch(() => null);
+    if (listRes?.ok) {
+      const listData = await listRes.json().catch(() => ({}));
+      const plans = listData.data || listData.plans || listData.results || (Array.isArray(listData) ? listData : []);
+      const existing = plans.find((p) => {
+        const name = String(p.name || p.plan_name || '').toLowerCase();
+        const amount = Number(p.amount || p.price || 0);
+        return name.includes('findmysize') || (amount === 125 && name.includes('month'));
+      });
+      if (existing) {
+        const id = existing._id || existing.id || existing.plan_id;
+        console.log('[wavy] found existing plan', id);
+        _wavyPlanIdCache = id;
+        return id;
+      }
     }
-  }
 
-  // 2. Create the plan
-  console.log('[wavy] creating subscription plan');
-  const createRes = await fetch(`${base}/api/payments/subscriptions/plans`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({
-      name: 'FindMySize Monthly',
-      amount: 125,
-      currency: 'USD',
-      interval: 'monthly',
-      description: 'FindMySize — size charts set up, embedded, and kept updated.',
-    }),
-  });
-  const createData = await createRes.json().catch(() => ({}));
-  console.log('[wavy] create plan response', createRes.status, JSON.stringify(createData).slice(0, 400));
-  if (!createRes.ok) {
-    throw new HttpError(createRes.status || 502, createData.error || createData.message || createData.data?.message || 'Could not create Wavy subscription plan');
-  }
-  const newId = (createData.data || createData)?._id
-    || (createData.data || createData)?.id
-    || (createData.data || createData)?.plan_id;
-  if (!newId) throw new HttpError(502, 'Wavy plan created but returned no ID');
-  console.log('[wavy] created plan', newId);
-  _wavyPlanIdCache = newId;
-  return newId;
+    // 2. Create the plan
+    console.log('[wavy] creating subscription plan');
+    const createRes = await wavyFetch(`${base}/api/payments/subscriptions/plans`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        name: 'FindMySize Monthly',
+        amount: 125,
+        currency: 'USD',
+        interval: 'monthly',
+        description: 'FindMySize — size charts set up, embedded, and kept updated.',
+      }),
+    });
+    const createData = await createRes.json().catch(() => ({}));
+    console.log('[wavy] create plan response', createRes.status, JSON.stringify(createData).slice(0, 400));
+    if (!createRes.ok) {
+      throw new HttpError(createRes.status || 502, createData.error || createData.message || createData.data?.message || 'Could not create Wavy subscription plan');
+    }
+    const newId = (createData.data || createData)?._id
+      || (createData.data || createData)?.id
+      || (createData.data || createData)?.plan_id;
+    if (!newId) throw new HttpError(502, 'Wavy plan created but returned no ID');
+    console.log('[wavy] created plan', newId);
+    _wavyPlanIdCache = newId;
+    return newId;
+  })().finally(() => { _wavyPlanInflight = null; });
+
+  return _wavyPlanInflight;
 }
 
 // GET /api/pay/wavy-plans — diagnostic: show plan status and raw API responses
@@ -142,12 +155,12 @@ payRoutes.get('/wavy-plans', ah(async (req, res) => {
   const base = config.wavyApiBase;
   const headers = { 'Authorization': `Bearer ${secret}`, 'Content-Type': 'application/json' };
 
-  const listRes = await fetch(`${base}/api/payments/subscriptions/plans`, { headers }).catch((err) => ({ _err: err.message }));
+  const listRes = await wavyFetch(`${base}/api/payments/subscriptions/plans`, { headers }).catch((err) => ({ _err: err.message }));
   const listBody = listRes.json ? await listRes.json().catch(() => ({})) : listRes;
 
   res.json({
     cached_plan_id: _wavyPlanIdCache,
-    list_status: listRes.status,
+    list_status: listRes.status ?? null,
     plans: listBody,
   });
 }));
@@ -176,7 +189,7 @@ payRoutes.post('/wavy-checkout', ah(async (req, res) => {
 
   const subscribeUrl = `${config.wavyApiBase}/api/payments/subscriptions/plans/${planId}/subscribe`;
   console.log('[wavy] subscribing', email, 'to plan', planId);
-  const sub = await fetch(subscribeUrl, {
+  const sub = await wavyFetch(subscribeUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${secret}` },
     body: JSON.stringify({
