@@ -94,3 +94,37 @@ alter table public.size_charts add column if not exists fit_style text
 -- by the browser that set it; with it, the brand is stored with the garment itself.
 -- Safe to re-run.
 alter table public.size_charts add column if not exists brand text not null default '';
+
+-- ---------------------------------------------------------------------------
+-- Brands. The server has been reading and writing these three tables, but they were never
+-- created here: if they are missing in your project, brand data could only live in the browser.
+-- Safe to re-run (create ... if not exists). Row level security is on with no policies, so only the
+-- server (which uses the service key) can touch them; the browser never reads them directly.
+-- ---------------------------------------------------------------------------
+
+-- One row per owner ('admin', or 'user:<account id>'): the name -> brand record the dashboard keeps,
+-- plus that owner's brand activations and per-brand popup designs.
+create table if not exists public.brand_meta (
+  key text primary key,
+  brands jsonb not null default '{}'::jsonb,
+  activations jsonb not null default '{}'::jsonb,
+  designs jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now()
+);
+alter table public.brand_meta enable row level security;
+
+-- The popup design a brand's garments share.
+create table if not exists public.brand_designs (
+  brand text primary key,
+  popup jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now()
+);
+alter table public.brand_designs enable row level security;
+
+-- Which brands (or garment codes) have been activated for the live popup.
+create table if not exists public.brand_activations (
+  brand text primary key,
+  code text,
+  activated_at timestamptz not null default now()
+);
+alter table public.brand_activations enable row level security;

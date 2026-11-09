@@ -24,6 +24,13 @@ export function missingColumn(error) {
   return rest ? rest[1] : '';
 }
 
+/** True when the database says a whole table is not there (as opposed to a column of it). */
+export function missingTable(error) {
+  const code = String(error?.code || '');
+  if (code === '42P01' || code === 'PGRST205') return true;
+  return /relation .* does not exist|Could not find the table|schema cache/i.test(String(error?.message || '')) && !missingColumn(error);
+}
+
 const told = new Set();
 function note(table, dropped) {
   const fresh = dropped.filter((c) => !told.has(`${table}.${c}`));

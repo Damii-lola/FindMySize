@@ -3,7 +3,7 @@ import { Router } from 'express';
 import { FIT_STYLES, DEFAULT_FIT_STYLE } from '../lib/sizing.js';
 import { db, supabaseConfigured } from '../lib/supabase.js';
 import { HttpError, ah } from '../lib/errors.js';
-import { dbError, selectTolerant, writeTolerant } from '../lib/schema.js';
+import { dbError, missingColumn, missingTable, selectTolerant, writeTolerant } from '../lib/schema.js';
 import { config } from '../config.js';
 import { consume, isUnlimited, rememberDevSub, userFromAuth, usageSnapshot } from '../lib/limits.js';
 import { makeActivationCode, markDevInactive, adminFromReq } from './auth.js';
@@ -274,41 +274,89 @@ chartRoutes.get('/all', ah(async (req, res) => {
   res.json({ charts: withFitStyle(data) });
 }));
 
+/**
+ * Who is asking: the admin, a signed-in account, or nobody. `key` is where that owner's own
+ * brand settings are kept, so one account's brands are never shown to, or overwritten by, another's.
+ */
+async function ownerOf(req) {
+  if (adminFromReq(req)) return { admin: true, key: 'admin', user: null };
+  const user = await userFromAuth(req);
+  if (!user) return null;
+  return { admin: false, key: `user:${user.id}`, user, signedIn: !String(user.id).startsWith('dev:') };
+}
+
+/** The garments an owner may see: all of them for the admin, otherwise their own plus any saved before accounts. */
+function ownedCharts(q, who) {
+  return who.admin ? q : q.or(`user_id.eq.${who.user.id},user_id.is.null`);
+}
+
+// Brands. The source of truth is the `brand` stored on each garment; the owner's brand_meta row (a name -> brand
+// record, plus activations and per-brand popup designs) fills in what the garments cannot say. Anything that
+// cannot be read or written is reported in `warnings` — never swallowed — so the dashboard can tell the owner.
 payRoutes.get('/brands', ah(async (req, res) => {
-  if (!adminFromReq(req)) throw new HttpError(401, 'Log in first');
-  if (!supabaseConfigured()) return res.json({ brands: {}, activations: {}, designs: {} });
-  const { data } = await db().from('brand_meta').select('brands, activations, designs').eq('key', 'admin').maybeSingle()
-    .then((r) => r).catch(() => ({ data: null }));
-  const row = data || {};
-  res.json({
-    brands: row.brands || {},
-    activations: row.activations || {},
-    designs: row.designs || {},
-  });
+  const who = await ownerOf(req);
+  if (!who) throw new HttpError(401, 'Log in first');
+  if (!supabaseConfigured()) return res.json({ brands: {}, activations: {}, designs: {}, warnings: ['memory'] });
+  const warnings = [];
+
+  let meta = {};
+  const metaRes = await db().from('brand_meta').select('brands, activations, designs').eq('key', who.key).maybeSingle();
+  if (metaRes.error) {
+    if (missingTable(metaRes.error)) warnings.push('no-brand-meta-table');
+    else throw dbError(metaRes.error, 'Could not read brands');
+  } else meta = metaRes.data || {};
+
+  const brands = { ...(meta.brands || {}) };
+  const { data, dropped } = await selectTolerant(
+    (cols) => ownedCharts(db().from('size_charts').select(cols), who),
+    ['name', 'brand', 'user_id'], { required: who.admin ? ['name'] : ['name', 'user_id'] },
+  );
+  if (dropped.includes('brand')) warnings.push('no-brand-column');
+  for (const row of data || []) {
+    const brand = String(row.brand || '').trim();
+    if (brand && row.name) brands[String(row.name).toLowerCase()] = brand;   // the garment's own brand wins
+  }
+  res.json({ brands, activations: meta.activations || {}, designs: meta.designs || {}, warnings });
 }));
 
 payRoutes.post('/brands', ah(async (req, res) => {
-  if (!adminFromReq(req)) throw new HttpError(401, 'Log in first');
-  const brands = req.body?.brands || {};
-  const activations = req.body?.activations || {};
-  const designs = req.body?.designs || {};
-  if (supabaseConfigured()) {
-    await db().from('brand_meta').upsert({ key: 'admin', brands, activations, designs, updated_at: new Date().toISOString() });
+  const who = await ownerOf(req);
+  if (!who) throw new HttpError(401, 'Log in first');
+  const plain = (v) => (v && typeof v === 'object' && !Array.isArray(v) ? v : {});
+  const warnings = [];
+  if (!supabaseConfigured()) return res.json({ ok: true, warnings: ['memory'] });
+  const { error } = await db().from('brand_meta').upsert({
+    key: who.key, brands: plain(req.body?.brands), activations: plain(req.body?.activations), designs: plain(req.body?.designs), updated_at: new Date().toISOString(),
+  });
+  if (error) {
+    if (missingTable(error)) warnings.push('no-brand-meta-table');
+    else throw dbError(error, 'Could not save brands');
   }
-  res.json({ ok: true });
+  res.json({ ok: true, warnings });
 }));
 
 chartRoutes.post('/brand-stamp', ah(async (req, res) => {
-  if (!adminFromReq(req)) throw new HttpError(401, 'Log in first');
+  const who = await ownerOf(req);
+  if (!who) throw new HttpError(401, 'Log in first');
   const items = Array.isArray(req.body?.items) ? req.body.items : [];
+  const warnings = [];
+  let stamped = 0;
   if (supabaseConfigured()) {
     for (const item of items) {
       const brand = String(item.brand || '').trim();
       const code = String(item.code || '').trim();
-      if (brand && code) await db().from('size_charts').update({ brand }).eq('code', code);
+      if (!brand || !code) continue;
+      let q = db().from('size_charts').update({ brand }).eq('code', code);
+      if (!who.admin) q = q.eq('user_id', who.user.id);   // an account may only label its own garments
+      const { data: hit, error } = await q.select('code');
+      if (error) {
+        if (missingColumn(error) === 'brand') { warnings.push('no-brand-column'); break; }
+        throw dbError(error, 'Could not label the garment');
+      }
+      stamped += (hit || []).length;   // only what really changed
     }
   }
-  res.json({ ok: true });
+  res.json({ ok: true, stamped, warnings });
 }));
 
 payRoutes.post('/brand-toggle', ah(async (req, res) => {
@@ -574,10 +622,17 @@ chartRoutes.post('/', ah(async (req, res) => {
       if (data.popup === undefined) data.popup = popup;   // table without a popup column: the design lives with the brand
       if (data.brand === undefined) data.brand = brand;   // table without a brand column: the brand lives in brand_meta
     }
+    // Say plainly what reached the database. The dashboard turns these into a message for the owner.
+    const warnings = [];
+    if (brand && written.dropped.includes('brand')) warnings.push('no-brand-column');
+    if (written.dropped.includes('popup')) warnings.push('no-popup-column');
+    if (data) { data.persisted = true; data.warnings = warnings; }
+    // A brand's popup design is shared by that owner's garments of the brand, never by anyone else's.
+    const mine = (q) => (signedIn ? q.eq('user_id', user.id) : q.is('user_id', null));
     if (!error && data && brand) {
       if (popup && Object.keys(popup).length) {
         await db().from('brand_designs').upsert({ brand, popup, updated_at: new Date().toISOString() }).then(() => {}).catch(() => {});
-        await db().from('size_charts').update({ popup }).eq('brand', brand).then(() => {}).catch(() => {});
+        await mine(db().from('size_charts').update({ popup }).eq('brand', brand)).then(() => {}).catch(() => {});
       } else {
         const existing = await db().from('brand_designs').select('popup').eq('brand', brand).maybeSingle();
         if (existing.data?.popup) {
@@ -595,7 +650,8 @@ chartRoutes.post('/', ah(async (req, res) => {
   if (i >= 0) list[i] = { ...list[i], ...row };
   else list.unshift(row);
   charts.set(key, list);
-  res.json(i >= 0 ? list[i] : row);
+  // Supabase is not connected: this chart lives in the server's memory only and will not survive a restart.
+  res.json({ ...(i >= 0 ? list[i] : row), persisted: false, warnings: ['memory'] });
 }));
 
 chartRoutes.delete('/code/:code', ah(async (req, res) => {

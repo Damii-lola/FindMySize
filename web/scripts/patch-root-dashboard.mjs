@@ -13,10 +13,11 @@
  *     that starts later) so brand-charts.js can group the cards and count garments from what the SERVER returned,
  *     not from this device's own record of brands.
  *
- *  4. charts  listCharts()  — it asked through a helper that sends the signed-in session token even when the owner
+ *  4. charts  listCharts() / saveChart()  — it asked through a helper that sends the signed-in session token even when the owner
  *     is logged in as admin, then hid any error and fell back to an empty device cache: a failed list looked
  *     exactly like "No clothing yet". It now sends the admin token explicitly (the way brand-charts.js reaches
- *     /api/pay/brands), falls back to the signed-in route, and throws the real error so the page can show it.
+ *     /api/pay/brands), falls back to the signed-in route, and throws the real error  so the page can show it. A save is no longer copied into the browser's own cache, and any old
+ *     copy is deleted the first time the server's list loads: the server is the only place charts live.
  *
  * Run from web/:  node scripts/patch-root-dashboard.mjs
  */
@@ -72,9 +73,18 @@ patch(
   'api helper: JSON content type for every request with a body',
 );
 
+const PREVIOUS_LIST = 'async function k(){const ad=localStorage.getItem("fms-admin");const dedupe=a=>{const seen=new Set();return a.filter(c=>{if(!c||!c.code)return true;if(seen.has(c.code))return false;seen.add(c.code);return true})};let err=null;if(ad){try{const r=await fetch("https://findmysize.onrender.com/api/charts/all",{headers:{Authorization:"Bearer "+ad}});const j=await r.json().catch(()=>({}));if(r.ok&&Array.isArray(j.charts))return dedupe(j.charts);err=new Error(j.error||"Request failed ("+r.status+")")}catch(e){err=e}}try{const r=await f("/api/charts",{method:"GET"});if(r&&Array.isArray(r.charts))return dedupe(r.charts)}catch(e){err=err||e}if(err)throw err;return d()}';
+
 patch(
   file('charts-'),
-  ['async function k(){const ad=localStorage.getItem("fms-admin");const path=ad?"/api/charts/all":"/api/charts";try{const r=await f(path,{method:"GET"});if(r&&Array.isArray(r.charts)){const seen=new Set();return r.charts.filter(c=>{if(!c||!c.code)return true;if(seen.has(c.code))return false;seen.add(c.code);return true});}return d()}catch{return d();}}'],
-  'async function k(){const ad=localStorage.getItem("fms-admin");const dedupe=a=>{const seen=new Set();return a.filter(c=>{if(!c||!c.code)return true;if(seen.has(c.code))return false;seen.add(c.code);return true})};let err=null;if(ad){try{const r=await fetch("https://findmysize.onrender.com/api/charts/all",{headers:{Authorization:"Bearer "+ad}});const j=await r.json().catch(()=>({}));if(r.ok&&Array.isArray(j.charts))return dedupe(j.charts);err=new Error(j.error||"Request failed ("+r.status+")")}catch(e){err=e}}try{const r=await f("/api/charts",{method:"GET"});if(r&&Array.isArray(r.charts))return dedupe(r.charts)}catch(e){err=err||e}if(err)throw err;return d()}',
-  'charts: the library is read from the server with the admin token, and a failure is raised, not hidden',
+  [PREVIOUS_LIST, 'async function k(){const ad=localStorage.getItem("fms-admin");const path=ad?"/api/charts/all":"/api/charts";try{const r=await f(path,{method:"GET"});if(r&&Array.isArray(r.charts)){const seen=new Set();return r.charts.filter(c=>{if(!c||!c.code)return true;if(seen.has(c.code))return false;seen.add(c.code);return true});}return d()}catch{return d();}}'],
+  'async function k(){const ad=localStorage.getItem("fms-admin");const dedupe=a=>{const seen=new Set();return a.filter(c=>{if(!c||!c.code)return true;if(seen.has(c.code))return false;seen.add(c.code);return true})};const fin=a=>{try{localStorage.removeItem("fms_charts_local")}catch{}return dedupe(a)};let err=null;if(ad){try{const r=await fetch("https://findmysize.onrender.com/api/charts/all",{headers:{Authorization:"Bearer "+ad}});const j=await r.json().catch(()=>({}));if(r.ok&&Array.isArray(j.charts))return fin(j.charts);err=new Error(j.error||"Request failed ("+r.status+")")}catch(e){err=e}}try{const r=await f("/api/charts",{method:"GET"});if(r&&Array.isArray(r.charts))return fin(r.charts)}catch(e){err=err||e}if(err)throw err;return d()}',
+  'charts: the library is read from the server with the admin token, a failure is raised, and the old device cache is cleared',
+);
+
+patch(
+  file('charts-'),
+  ['const o=await f("/api/charts",{method:"POST",body:c});if(o&&o.code){try{const i=d();const r=i.find(u=>u.code===o.code||u.id===e);const z={...c,...o};if(r){i[i.indexOf(r)]={...r,...z}}else i.unshift(z);_(i)}catch{}}return o;}'],
+  'const o=await f("/api/charts",{method:"POST",body:c});return o;}',
+  'charts: a save is no longer copied into this browser\'s own cache',
 );

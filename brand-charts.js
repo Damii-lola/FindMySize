@@ -83,6 +83,11 @@ document.addEventListener('DOMContentLoaded', function () {
       '.brand-opt--new .brand-opt-mark{background:var(--orange,#f0521f)!important}',
       '.brand-opt-hint{font-size:11px;font-weight:700;color:var(--orange-text,#a9330a);letter-spacing:.06em;text-transform:uppercase;flex:none}',
       '.brand-empty{padding:18px 14px;text-align:center;font-size:13.5px;line-height:1.5;color:var(--muted-strong,#6b5b4e)}',
+      '.fms-notice{position:relative;margin:0 0 18px;padding:16px 46px 16px 18px;border:1px solid rgba(180,35,24,.3);border-radius:16px;background:#fdecec;color:#7a1d14;font-size:14px;line-height:1.5}',
+      '.fms-notice p{margin:0}',
+      '.fms-notice code{display:block;margin:10px 0 0;padding:10px 12px;border-radius:10px;background:rgba(34,26,21,.9);color:#f5e9d6;font:12.5px/1.5 ui-monospace,Menlo,Consolas,monospace;overflow-x:auto;white-space:pre}',
+      '.fms-notice-close{position:absolute;top:10px;right:10px;width:28px;height:28px;border:0;border-radius:999px;background:transparent;color:inherit;font-size:20px;line-height:1;cursor:pointer}',
+      '.fms-notice-close:hover{background:rgba(0,0,0,.08)}',
       '@media (max-width:520px){.brand-row{padding:15px 14px;gap:12px}.brand-name{font-size:21px}.brand-mark{width:40px;height:40px;border-radius:13px}.brand-actions{padding:12px 14px 2px}.brand-actions button{flex:1 1 auto;justify-content:center}}',
       '@media (prefers-reduced-motion:reduce){.brand-menu,.brand-group[open] > :not(summary){animation:none}.brand-chev,.brand-actions button{transition:none}}'
     ].join('');
@@ -162,6 +167,13 @@ document.addEventListener('DOMContentLoaded', function () {
     });
     if (changed) localStorage.setItem(KEY, JSON.stringify(map));
     fillList();
+    showBrandCount();
+  }
+  /* The "Brands" tile counts the brands of the garments actually in the library (a brand kept only in the
+     account's record, with the column missing, would otherwise read 0 next to a visible brand group). */
+  function showBrandCount() {
+    var tile = document.getElementById('stat-brands');
+    if (tile && live && live.length) tile.textContent = String(Object.keys(counts()).length);
   }
   function svgIcon(paths, extra) {
     var s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -405,7 +417,16 @@ document.addEventListener('DOMContentLoaded', function () {
         }
       } catch (e) {}
     }
-    return orig.call(this, url, opts);
+    var sent = orig.call(this, url, opts);
+    if (/\/api\/charts\/?$/.test(href.split('?')[0]) && method === 'POST') {
+      sent.then(function (r) {
+        r.clone().json().then(function (json) {
+          heed(json);
+          if (r.ok) syncToServer();   // the brand reaches the server with the garment, not a minute later
+        }).catch(function () {});
+      }, function () {});
+    }
+    return sent;
   };
 
   if (form) form.addEventListener('submit', function () {
@@ -416,6 +437,7 @@ document.addEventListener('DOMContentLoaded', function () {
       map[name.toLowerCase()] = brand;
       saveBrands(map);
       fillList();
+      setTimeout(syncToServer, 500);
       var design = designs()[brand.toLowerCase()];
       var activated = activations()[brand.toLowerCase()];
       // Apply design more reliably: poll for the new card then push popup
@@ -617,6 +639,79 @@ document.addEventListener('DOMContentLoaded', function () {
     search.placeholder = 'Search brands';
     search.addEventListener('input', group);
   }
+  /* Whoever is signed in: the admin login, else the account's own session (kept by the sign-in library under
+     an sb-...-auth-token key), else the older dev token. Brands used to need the admin login, so for an
+     ordinary account they could only ever live in this browser. */
+  function authToken() {
+    var admin = localStorage.getItem('fms-admin');
+    if (admin) return admin;
+    try {
+      for (var i = 0; i < localStorage.length; i += 1) {
+        var key = localStorage.key(i);
+        if (/^sb-.*-auth-token$/.test(key)) {
+          var session = JSON.parse(localStorage.getItem(key) || 'null');
+          if (session && session.access_token) return session.access_token;
+        }
+      }
+    } catch (e) { /* unreadable: fall through */ }
+    return localStorage.getItem('fms_token') || '';
+  }
+
+  var API = 'https://findmysize.onrender.com';
+  var told = {};
+  var NOTICES = {
+    memory: { text: 'The server is not connected to Supabase, so garments are only held in its memory and will be lost when it restarts. On Render, check SUPABASE_URL and SUPABASE_SECRET_KEY.' },
+    'no-brand-column': {
+      text: 'Your database has no brand column on size_charts, so a garment\u2019s brand cannot be stored with it. Run this once in Supabase \u2192 SQL editor:',
+      sql: "alter table public.size_charts add column if not exists brand text not null default '';",
+    },
+    'no-brand-meta-table': { text: 'Your database is missing the brand_meta table, so your brand settings cannot be saved to your account. In Supabase \u2192 SQL editor, run the \u201cBrands\u201d section at the end of supabase.sql in your repository.' },
+    'no-popup-column': { text: 'Your database has no popup column on size_charts, so popup designs cannot be saved with garments. Run the popup lines in supabase.sql (Supabase \u2192 SQL editor).' },
+  };
+  /* Say what is wrong, once, above the library, in words the owner can act on. */
+  function notice(kind, detail) {
+    if (told[kind] || !list || !list.parentNode) return;
+    told[kind] = true;
+    var info = NOTICES[kind] || { text: 'Your brands could not be saved to the server' + (detail ? ' (' + detail + ')' : '') + '. They are kept on this device for now.' };
+    var box = document.createElement('div');
+    box.className = 'fms-notice';
+    box.setAttribute('role', 'alert');
+    var text = document.createElement('p');
+    text.textContent = info.text;
+    box.appendChild(text);
+    if (info.sql) {
+      var code = document.createElement('code');
+      code.textContent = info.sql;
+      box.appendChild(code);
+    }
+    var close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'fms-notice-close';
+    close.setAttribute('aria-label', 'Dismiss');
+    close.textContent = '\u00d7';
+    close.addEventListener('click', function () { box.remove(); });
+    box.appendChild(close);
+    list.parentNode.insertBefore(box, list);
+  }
+  /* What the server says about a request: anything in `warnings` is shown. */
+  function heed(json) {
+    if (json && Array.isArray(json.warnings)) json.warnings.forEach(function (w) { notice(w); });
+    return json;
+  }
+  /* A call to the server as whoever is signed in. Resolves to the reply, or null (after saying why). */
+  function api(path, options) {
+    var token = authToken();
+    if (!token) return Promise.resolve(null);
+    var opts = Object.assign({}, options || {});
+    opts.headers = Object.assign({ Authorization: 'Bearer ' + token }, opts.headers || {});
+    return orig.call(window, API + path, opts).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (json) {
+        if (!r.ok) { notice('sync-failed', (json && json.error) || 'HTTP ' + r.status); return null; }
+        return heed(json);
+      });
+    }, function () { notice('sync-failed', 'the server could not be reached'); return null; });
+  }
+
   function stamp() {
     var map = brands();
     var items = [];
@@ -626,11 +721,7 @@ document.addEventListener('DOMContentLoaded', function () {
       if (brand && card.dataset.code) items.push({ brand: brand, code: card.dataset.code });
     });
     if (!items.length) return;
-    fetch('https://findmysize.onrender.com/api/charts/brand-stamp', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (localStorage.getItem('fms-admin') || '') },
-      body: JSON.stringify({ items: items }),
-    }).catch(function () {});
+    api('/api/charts/brand-stamp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items: items }) });
   }
   function syncActive() {
     var on = activations();
@@ -647,32 +738,27 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   function syncToServer() {
-    var token = localStorage.getItem('fms-admin');
-    if (!token) return;
-    fetch('https://findmysize.onrender.com/api/pay/brands', {
+    return api('/api/pay/brands', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ brands: brands(), activations: activations(), designs: designs() }),
-    }).catch(function () {});
+    });
   }
   function loadAccount() {
-    var token = localStorage.getItem('fms-admin');
-    if (!token) return;
-    fetch('https://findmysize.onrender.com/api/pay/brands', { headers: { Authorization: 'Bearer ' + token } })
-      .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (data) {
-        if (!data) return;
-        if (data.brands && Object.keys(data.brands).length) localStorage.setItem(KEY, JSON.stringify(data.brands));
-        if (data.activations && Object.keys(data.activations).length) localStorage.setItem('fms-brand-active', JSON.stringify(data.activations));
-        if (data.designs && Object.keys(data.designs).length) localStorage.setItem('fms-brand-popup', JSON.stringify(data.designs));
-        group();
-      }).catch(function () {});
-    fetch('https://findmysize.onrender.com/api/charts/all', { headers: { Authorization: 'Bearer ' + token } })
-      .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (data) {
-        if (!data || !Array.isArray(data.charts)) return;
-        // stamp brands from server if needed
-      }).catch(function () {});
+    return api('/api/pay/brands').then(function (data) {
+      if (!data) return;
+      var local = brands();
+      var server = data.brands || {};
+      // The server's record wins where the two disagree; what only this device knows is kept...
+      localStorage.setItem(KEY, JSON.stringify(Object.assign({}, local, server)));
+      if (data.activations && Object.keys(data.activations).length) localStorage.setItem('fms-brand-active', JSON.stringify(data.activations));
+      if (data.designs && Object.keys(data.designs).length) localStorage.setItem('fms-brand-popup', JSON.stringify(data.designs));
+      group();
+      fillList();
+      showBrandCount();
+      // ...and sent up now, so it is on the server (and on every other device) rather than only here.
+      if (Object.keys(local).some(function (k) { return server[k] !== local[k]; })) syncToServer();
+    });
   }
   loadAccount();
   setInterval(stamp, 30000);
