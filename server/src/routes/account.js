@@ -78,15 +78,45 @@ payRoutes.post('/webhook', ah(async (req, res) => {
 }));
 
 
+// GET /api/pay/wavy-plans — diagnostic: list all plans on this Wavy account
+payRoutes.get('/wavy-plans', ah(async (req, res) => {
+  const secret = config.wavySecretKey;
+  if (!secret) throw new HttpError(503, 'WAVY_SECRET_KEY not configured');
+
+  // Try both common endpoint shapes
+  const endpoints = [
+    `${config.wavyApiBase}/api/payments/subscriptions/plans`,
+    `${config.wavyApiBase}/api/v1/subscriptions/plans`,
+    `${config.wavyApiBase}/api/subscriptions/plans`,
+  ];
+
+  const results = [];
+  for (const url of endpoints) {
+    try {
+      const r = await fetch(url, {
+        headers: { 'Authorization': `Bearer ${secret}`, 'Content-Type': 'application/json' },
+      });
+      const body = await r.json().catch(() => ({}));
+      results.push({ url, status: r.status, body });
+      if (r.ok) break; // found it
+    } catch (err) {
+      results.push({ url, error: err.message });
+    }
+  }
+
+  res.json({ configured_plan_id: config.wavyPlanId || null, results });
+}));
+
 payRoutes.post('/wavy-checkout', ah(async (req, res) => {
+  const secret = config.wavySecretKey;
+  if (!secret) throw new HttpError(503, 'Wavy secret key is not configured');
+
   const email = emailOf(req.body?.email);
   if (!email || !email.includes('@')) throw new HttpError(400, 'Enter a valid email');
 
-  const checkoutUrl = config.wavyCheckoutUrl;
-  if (!checkoutUrl) throw new HttpError(503, 'WAVY_CHECKOUT_URL is not set on the server');
-
   const reference = `fms_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   const amount = 125;
+  const site = 'https://damii-lola.github.io/FindMySize';
 
   pendingPays.set(reference, { email, amount, created: Date.now() });
   pendingPays.set('email:' + email, { reference, amount, created: Date.now() });
@@ -96,11 +126,27 @@ payRoutes.post('/wavy-checkout', ah(async (req, res) => {
     }).then(() => {}).catch((err) => console.warn('[wavy] pending store failed', err.message));
   }
 
-  // Append email so Wavy can pre-fill it if the link supports it
-  const url = new URL(checkoutUrl);
-  if (!url.searchParams.has('email')) url.searchParams.set('email', email);
+  const planId = config.wavyPlanId;
+  if (!planId) throw new HttpError(503, 'Wavy plan ID is not configured — set WAVY_PLAN_ID on Render');
 
-  res.json({ url: url.toString(), reference });
+  // Create subscription payment link on the spot via Wavy API
+  const subscribeUrl = `${config.wavyApiBase}/api/payments/subscriptions/plans/${planId}/subscribe`;
+  console.log('[wavy] subscribing', email, 'to plan', planId);
+  const sub = await fetch(subscribeUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${secret}`,
+    },
+    body: JSON.stringify({ email, redirect_url: `${site}/pay/success.html`, metadata: { reference } }),
+  });
+  const subData = await sub.json().catch(() => ({}));
+  console.log('[wavy] subscribe response', sub.status, JSON.stringify(subData).slice(0, 400));
+  if (!sub.ok || !(subData.payment_link || subData.data?.payment_link || subData.url || subData.data?.url)) {
+    throw new HttpError(sub.status || 502, subData.error || subData.message || subData.data?.message || 'Could not start the subscription');
+  }
+  const payUrl = subData.payment_link || subData.data?.payment_link || subData.url || subData.data?.url;
+  res.json({ url: payUrl, reference });
 }));
 
 async function wavyTxPaid(reference) {
