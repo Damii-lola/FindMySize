@@ -102,6 +102,10 @@ export const config = Object.freeze({
     imapHost: process.env.GMAIL_IMAP_HOST || 'imap.gmail.com',
     imapPort: Number(process.env.GMAIL_IMAP_PORT || 993),
   }),
+  sender: Object.freeze({
+    email: process.env.SENDER_GMAIL || process.env.GMAIL_USER || '',
+    pass: process.env.SENDER_GMAIL_APP_PASSWORD || process.env.GmailAPI || process.env.GMAIL_API || '',
+  }),
   processingSize: Number(process.env.PROCESSING_SIZE || 1024),
   signedUrlTtl: 60 * 60 * 6,
 });

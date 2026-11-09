@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Outreach — FindMySize</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23f0521f'/%3E%3Cg transform='rotate(45 16 16)'%3E%3Crect x='12.5' y='6' width='7' height='3.2' rx='1' fill='%23fdf7ea'/%3E%3Crect x='12.5' y='9.2' width='7' height='1.4' fill='%23f0521f'/%3E%3Crect x='12.5' y='10.6' width='7' height='12.2' rx='0.6' fill='%23fdf7ea'/%3E%3Cpath d='M12.5 22.8h7L16 28z' fill='%23fdf7ea'/%3E%3Cpath d='M14.9 26.3h2.2L16 28z' fill='%23191411'/%3E%3C/g%3E%3C/svg%3E" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    :root {
+      --bg: #0f0f0f; --surface: #1a1a1a; --surface2: #222;
+      --border: #2a2a2a; --text: #f0ede8; --muted: #888;
+      --accent: #f0521f; --green: #22c55e; --red: #ef4444; --yellow: #f59e0b;
+      --radius: 10px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: system-ui, sans-serif; min-height: 100vh; }
+
+    header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 24px; border-bottom: 1px solid var(--border);
+      position: sticky; top: 0; background: var(--bg); z-index: 10;
+    }
+    .logo { font-weight: 700; font-size: 1.1rem; color: var(--accent); }
+    .header-links a { color: var(--muted); text-decoration: none; font-size: 0.85rem; margin-left: 16px; }
+    .header-links a:hover { color: var(--text); }
+
+    main { max-width: 900px; margin: 0 auto; padding: 28px 16px; }
+
+    /* Login overlay */
+    #login-overlay {
+      position: fixed; inset: 0; background: var(--bg);
+      display: flex; align-items: center; justify-content: center; z-index: 100;
+    }
+    .login-box {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+      padding: 32px; width: 100%; max-width: 360px;
+    }
+    .login-box h1 { font-size: 1.3rem; margin-bottom: 6px; }
+    .login-box p { color: var(--muted); font-size: 0.9rem; margin-bottom: 24px; }
+    .login-box input {
+      width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+      color: var(--text); padding: 10px 14px; font-size: 0.95rem; margin-bottom: 12px;
+    }
+    .login-box input:focus { outline: none; border-color: var(--accent); }
+    .login-box button {
+      width: 100%; background: var(--accent); border: none; color: #fff;
+      padding: 11px; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer;
+    }
+    #login-error { color: var(--red); font-size: 0.85rem; margin-top: 10px; min-height: 20px; }
+
+    /* Upload zone */
+    .upload-zone {
+      border: 2px dashed var(--border); border-radius: var(--radius);
+      padding: 40px 24px; text-align: center; cursor: pointer;
+      transition: border-color .2s, background .2s; margin-bottom: 24px;
+    }
+    .upload-zone:hover, .upload-zone.drag { border-color: var(--accent); background: rgba(240,82,31,.05); }
+    .upload-zone .icon { font-size: 2.5rem; margin-bottom: 10px; }
+    .upload-zone p { color: var(--muted); font-size: 0.9rem; margin-top: 6px; }
+    .upload-zone strong { color: var(--text); }
+    #file-input { display: none; }
+
+    /* Stats bar */
+    .stats-bar {
+      display: flex; gap: 16px; margin-bottom: 20px; flex-wrap: wrap;
+    }
+    .stat { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 16px; }
+    .stat .n { font-size: 1.4rem; font-weight: 700; }
+    .stat .l { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+
+    /* Batch controls */
+    .batch-bar {
+      display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap;
+    }
+    .batch-bar label { font-size: 0.85rem; color: var(--muted); }
+    .batch-select {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+      color: var(--text); padding: 6px 10px; font-size: 0.9rem;
+    }
+    .send-btn {
+      background: var(--accent); border: none; color: #fff;
+      padding: 9px 22px; border-radius: 8px; font-size: 0.95rem;
+      font-weight: 600; cursor: pointer; margin-left: auto;
+    }
+    .send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .send-btn:hover:not(:disabled) { opacity: 0.9; }
+
+    /* Progress */
+    #progress-bar-wrap { margin-bottom: 16px; display: none; }
+    #progress-bar-wrap p { font-size: 0.85rem; color: var(--muted); margin-bottom: 6px; }
+    .progress-track { background: var(--surface); border-radius: 99px; height: 6px; overflow: hidden; }
+    .progress-fill { height: 100%; background: var(--accent); border-radius: 99px; transition: width .3s; width: 0%; }
+
+    /* Table */
+    .table-wrap { overflow-x: auto; border-radius: var(--radius); border: 1px solid var(--border); }
+    table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+    thead { background: var(--surface2); }
+    th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
+    th { font-size: 0.75rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 600; }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover { background: var(--surface); }
+    .row-check { width: 36px; }
+    input[type=checkbox] { accent-color: var(--accent); width: 15px; height: 15px; cursor: pointer; }
+
+    .status-badge {
+      display: inline-block; padding: 2px 8px; border-radius: 99px; font-size: 0.75rem; font-weight: 600;
+    }
+    .status-badge.sent { background: rgba(34,197,94,.15); color: var(--green); }
+    .status-badge.failed { background: rgba(239,68,68,.15); color: var(--red); }
+    .status-badge.pending { background: rgba(136,136,136,.12); color: var(--muted); }
+    .status-badge.sending { background: rgba(240,82,31,.12); color: var(--accent); }
+
+    /* Template preview */
+    .template-preview {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 20px 24px; margin-bottom: 24px;
+    }
+    .template-preview h3 { font-size: 0.85rem; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 12px; }
+    .template-preview .subject { font-weight: 600; margin-bottom: 8px; }
+    .template-preview pre { font-family: system-ui, sans-serif; font-size: 0.88rem; color: var(--muted); white-space: pre-wrap; line-height: 1.6; }
+    .template-preview .highlight { color: var(--accent); font-weight: 600; }
+
+    .empty-state { text-align: center; padding: 60px 20px; color: var(--muted); }
+    .select-all-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; font-size: 0.85rem; color: var(--muted); }
+
+    .summary-toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+      padding: 14px 24px; font-size: 0.9rem; display: none; z-index: 50;
+      box-shadow: 0 8px 32px rgba(0,0,0,.4);
+    }
+    .summary-toast.show { display: block; }
+    .summary-toast .ok { color: var(--green); font-weight: 700; }
+    .summary-toast .fail { color: var(--red); font-weight: 700; }
+
+    @media (max-width: 600px) {
+      header { padding: 12px 16px; }
+      .send-btn { width: 100%; }
+      .batch-bar { flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="login-overlay">
+  <div class="login-box">
+    <h1>Outreach</h1>
+    <p>Admin access only</p>
+    <input id="login-email" type="email" placeholder="Email" autocomplete="email" />
+    <input id="login-pass" type="password" placeholder="Password" autocomplete="current-password" />
+    <button id="login-btn">Log in</button>
+    <div id="login-error"></div>
+  </div>
+</div>
+
+<header>
+  <div class="logo">FindMySize Outreach</div>
+  <div class="header-links">
+    <a href="/FindMySize/monitor/">Monitor</a>
+    <a href="/FindMySize/dashboard/">Dashboard</a>
+  </div>
+</header>
+
+<main>
+
+  <div class="template-preview" id="template-preview">
+    <h3>Email Template</h3>
+    <div class="subject" id="tpl-subject">Loading…</div>
+    <pre id="tpl-body"></pre>
+  </div>
+
+  <div id="upload-section">
+    <div class="upload-zone" id="upload-zone">
+      <div class="icon">📊</div>
+      <strong>Drop your Excel file here</strong>
+      <p>Or click to browse — needs columns: <strong>First Name</strong>, <strong>Email</strong>, <strong>Company Name</strong></p>
+      <input type="file" id="file-input" accept=".xlsx,.xls,.csv" />
+    </div>
+  </div>
+
+  <div id="contacts-section" style="display:none">
+    <div class="stats-bar">
+      <div class="stat"><div class="n" id="stat-total">0</div><div class="l">Total</div></div>
+      <div class="stat"><div class="n" id="stat-selected">0</div><div class="l">Selected</div></div>
+      <div class="stat"><div class="n" id="stat-sent" style="color:var(--green)">0</div><div class="l">Sent</div></div>
+      <div class="stat"><div class="n" id="stat-failed" style="color:var(--red)">0</div><div class="l">Failed</div></div>
+    </div>
+
+    <div class="batch-bar">
+      <div class="select-all-row">
+        <input type="checkbox" id="select-all" />
+        <label for="select-all">Select all</label>
+      </div>
+      <label>Batch size:
+        <select class="batch-select" id="batch-size">
+          <option value="5">5</option>
+          <option value="10">10</option>
+          <option value="20" selected>20</option>
+        </select>
+      </label>
+      <button class="send-btn" id="send-btn">Send selected →</button>
+    </div>
+
+    <div id="progress-bar-wrap">
+      <p id="progress-label">Sending…</p>
+      <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th class="row-check"></th>
+            <th>#</th>
+            <th>First Name</th>
+            <th>Company</th>
+            <th>Email</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="contacts-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="empty-state" id="empty-state" style="display:none">
+    No contacts found — make sure your Excel has columns named <strong>First Name</strong>, <strong>Email</strong>, and <strong>Company Name</strong>.
+  </div>
+
+</main>
+
+<div class="summary-toast" id="summary-toast"></div>
+
+<script>
+const API = 'https://findmysize.onrender.com/api';
+let token = localStorage.getItem('fms-admin') || '';
+let contacts = []; // { firstName, email, companyName, status: 'pending'|'sent'|'failed'|'sending', error }
+
+// ── Auth ──────────────────────────────────────────────────────────
+if (token) init();
+
+async function login() {
+  const email = document.getElementById('login-email').value.trim();
+  const pass = document.getElementById('login-pass').value;
+  const err = document.getElementById('login-error');
+  err.textContent = 'Logging in…';
+  try {
+    const r = await fetch(`${API}/auth/admin-login`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password: pass }),
+    });
+    const d = await r.json();
+    if (!r.ok || !d.token) throw new Error(d.error || 'Login failed');
+    token = d.token;
+    localStorage.setItem('fms-admin', token);
+    document.getElementById('login-overlay').style.display = 'none';
+    init();
+  } catch (e) { err.textContent = e.message; }
+}
+document.getElementById('login-btn').addEventListener('click', login);
+document.getElementById('login-email').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('login-pass').focus(); });
+document.getElementById('login-pass').addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
+
+// ── Init ──────────────────────────────────────────────────────────
+async function init() {
+  document.getElementById('login-overlay').style.display = 'none';
+  loadTemplate();
+}
+
+async function loadTemplate() {
+  try {
+    const r = await fetch(`${API}/outreach/template`, { headers: { Authorization: `Bearer ${token}` } });
+    if (r.status === 401) { document.getElementById('login-overlay').style.display = 'flex'; return; }
+    const d = await r.json();
+    document.getElementById('tpl-subject').innerHTML = highlightVars(escHtml(d.subject));
+    document.getElementById('tpl-body').innerHTML = highlightVars(escHtml(d.body));
+    if (!d.senderConfigured) {
+      document.getElementById('tpl-subject').insertAdjacentHTML('beforebegin',
+        '<p style="color:var(--red);font-size:.85rem;margin-bottom:10px">⚠️ SENDER_GMAIL and SENDER_GMAIL_APP_PASSWORD are not set on Render — emails won\'t send.</p>');
+    }
+  } catch (e) { console.error(e); }
+}
+
+// ── Upload ────────────────────────────────────────────────────────
+const uploadZone = document.getElementById('upload-zone');
+const fileInput = document.getElementById('file-input');
+
+uploadZone.addEventListener('click', () => fileInput.click());
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag'));
+uploadZone.addEventListener('drop', e => { e.preventDefault(); uploadZone.classList.remove('drag'); handleFile(e.dataTransfer.files[0]); });
+fileInput.addEventListener('change', () => handleFile(fileInput.files[0]));
+
+function handleFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const wb = XLSX.read(e.target.result, { type: 'binary' });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+    parseContacts(rows);
+  };
+  reader.readAsBinaryString(file);
+}
+
+function parseContacts(rows) {
+  contacts = rows.map(r => {
+    // Flexible column matching
+    const firstName = String(r['First Name'] || r['first name'] || r['firstname'] || r['FirstName'] || r['name'] || r['Name'] || '').trim();
+    const email = String(r['Email'] || r['email'] || r['EMAIL'] || '').trim().toLowerCase();
+    const companyName = String(r['Company Name'] || r['company name'] || r['company'] || r['Company'] || r['Brand'] || r['brand'] || '').trim();
+    return { firstName, email, companyName, status: 'pending' };
+  }).filter(c => c.email && c.email.includes('@'));
+
+  if (!contacts.length) {
+    document.getElementById('contacts-section').style.display = 'none';
+    document.getElementById('empty-state').style.display = 'block';
+    return;
+  }
+  document.getElementById('empty-state').style.display = 'none';
+  document.getElementById('contacts-section').style.display = 'block';
+  renderTable();
+  updateStats();
+}
+
+// ── Table ─────────────────────────────────────────────────────────
+function renderTable() {
+  const tbody = document.getElementById('contacts-tbody');
+  tbody.innerHTML = contacts.map((c, i) => `
+    <tr id="row-${i}">
+      <td class="row-check"><input type="checkbox" class="row-cb" data-i="${i}" ${c.status === 'pending' ? 'checked' : ''} ${c.status !== 'pending' ? 'disabled' : ''} /></td>
+      <td>${i + 1}</td>
+      <td>${escHtml(c.firstName)}</td>
+      <td>${escHtml(c.companyName)}</td>
+      <td>${escHtml(c.email)}</td>
+      <td><span class="status-badge ${c.status}">${c.status}${c.error ? ' — ' + escHtml(c.error.slice(0,40)) : ''}</span></td>
+    </tr>
+  `).join('');
+
+  document.querySelectorAll('.row-cb').forEach(cb => {
+    cb.addEventListener('change', updateStats);
+  });
+}
+
+function updateRow(i) {
+  const c = contacts[i];
+  const row = document.getElementById(`row-${i}`);
+  if (!row) return;
+  row.querySelector('.status-badge').className = `status-badge ${c.status}`;
+  row.querySelector('.status-badge').textContent = c.status + (c.error ? ' — ' + c.error.slice(0,40) : '');
+  const cb = row.querySelector('.row-cb');
+  if (c.status !== 'pending') { cb.checked = false; cb.disabled = true; }
+}
+
+function updateStats() {
+  const selected = [...document.querySelectorAll('.row-cb:checked')].length;
+  document.getElementById('stat-total').textContent = contacts.length;
+  document.getElementById('stat-selected').textContent = selected;
+  document.getElementById('stat-sent').textContent = contacts.filter(c => c.status === 'sent').length;
+  document.getElementById('stat-failed').textContent = contacts.filter(c => c.status === 'failed').length;
+}
+
+document.getElementById('select-all').addEventListener('change', function() {
+  document.querySelectorAll('.row-cb:not(:disabled)').forEach(cb => cb.checked = this.checked);
+  updateStats();
+});
+
+// ── Send ──────────────────────────────────────────────────────────
+document.getElementById('send-btn').addEventListener('click', sendSelected);
+
+async function sendSelected() {
+  const checked = [...document.querySelectorAll('.row-cb:checked')];
+  if (!checked.length) { alert('Select at least one contact.'); return; }
+
+  const batchSize = Number(document.getElementById('batch-size').value) || 20;
+  const indices = checked.map(cb => Number(cb.dataset.i));
+
+  // Enforce max 20
+  const toSend = indices.slice(0, batchSize);
+  if (indices.length > batchSize) {
+    alert(`Sending the first ${batchSize} selected. Uncheck and re-send for the rest.`);
+  }
+
+  document.getElementById('send-btn').disabled = true;
+  document.getElementById('progress-bar-wrap').style.display = 'block';
+
+  // Mark all as sending
+  toSend.forEach(i => { contacts[i].status = 'sending'; updateRow(i); });
+  updateStats();
+
+  const batch = toSend.map(i => ({
+    firstName: contacts[i].firstName,
+    email: contacts[i].email,
+    companyName: contacts[i].companyName,
+  }));
+
+  try {
+    document.getElementById('progress-label').textContent = `Sending ${batch.length} emails…`;
+    document.getElementById('progress-fill').style.width = '30%';
+
+    const r = await fetch(`${API}/outreach/send`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ contacts: batch }),
+    });
+    const d = await r.json();
+
+    document.getElementById('progress-fill').style.width = '100%';
+
+    if (!r.ok) throw new Error(d.error || 'Send failed');
+
+    // Update statuses
+    d.results.forEach((res, idx) => {
+      const i = toSend[idx];
+      contacts[i].status = res.ok ? 'sent' : 'failed';
+      contacts[i].error = res.error || '';
+      updateRow(i);
+    });
+
+    updateStats();
+    showToast(d.sent, d.failed);
+  } catch (e) {
+    toSend.forEach(i => { if (contacts[i].status === 'sending') { contacts[i].status = 'failed'; contacts[i].error = e.message; updateRow(i); } });
+    updateStats();
+    alert('Error: ' + e.message);
+  } finally {
+    document.getElementById('send-btn').disabled = false;
+    setTimeout(() => {
+      document.getElementById('progress-bar-wrap').style.display = 'none';
+      document.getElementById('progress-fill').style.width = '0%';
+    }, 1500);
+  }
+}
+
+function showToast(sent, failed) {
+  const t = document.getElementById('summary-toast');
+  t.innerHTML = `<span class="ok">✓ ${sent} sent</span>${failed ? `  &nbsp; <span class="fail">✗ ${failed} failed</span>` : ''}`;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 4000);
+}
+
+// ── Helpers ───────────────────────────────────────────────────────
+function escHtml(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function highlightVars(s) {
+  return s.replace(/\{[^}]+\}/g, m => `<span class="highlight">${m}</span>`);
+}
+</script>
+</body>
+</html>

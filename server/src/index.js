@@ -10,6 +10,7 @@ import { supabaseConfigured } from './lib/supabase.js';
 import { bodyScan } from './routes/body-scan.js';
 import { authRoutes } from './routes/auth.js';
 import { payRoutes, meRoutes, usageRoutes, chartRoutes } from './routes/account.js';
+import { outreachRoutes } from './routes/outreach.js';
 import { websiteRoutes } from './routes/website.js';
 import { chatRoutes } from './routes/chat.js';
 import { checkChartColumns } from './lib/cloudflare.js';
@@ -75,6 +76,7 @@ app.post('/api/webhooks/selar', (req, res, next) => {
 app.use('/api/me', meRoutes);
 app.use('/api/usage', usageRoutes);
 app.use('/api/charts', chartRoutes);
+app.use('/api/outreach', outreachRoutes);
 app.use('/api/body-scan', bodyScan);
 app.use('/api/website-analysis', websiteRoutes);
 app.use('/api/chat', chatRoutes);
