@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import { Router } from 'express';
 import { db, supabaseConfigured } from '../lib/supabase.js';
 import { HttpError, ah } from '../lib/errors.js';
+import { dbError, missingColumn, missingTable, selectTolerant, writeTolerant } from '../lib/schema.js';
 import { config } from '../config.js';
 import { consume, isUnlimited, rememberDevSub, userFromAuth, usageSnapshot } from '../lib/limits.js';
 import { makeActivationCode, markDevInactive, adminFromReq } from './auth.js';
@@ -365,13 +366,18 @@ payRoutes.post('/subscription/renew', ah(async (req, res) => {
 }));
 
 
+/** Everything the dashboard would like to know about a chart; only the first few are needed, the rest are asked for if the table has them. */
+const CHART_COLUMNS = ['id', 'code', 'name', 'sex', 'unit', 'columns', 'rows', 'popup', 'popup_uses', 'brand', 'user_id', 'created_at', 'updated_at'];
+const CHART_REQUIRED = ['code', 'name', 'columns', 'rows', 'created_at'];
+
 chartRoutes.get('/all', ah(async (req, res) => {
   if (!adminFromReq(req)) throw new HttpError(401, 'Log in first');
   if (!supabaseConfigured()) return res.json({ charts: [] });
-  const { data, error } = await db().from('size_charts')
-    .select('id, code, name, sex, unit, columns, rows, popup, brand, created_at')
-    .order('created_at', { ascending: false });
-  if (error) throw new HttpError(500, error.message);
+  // A table without one of the optional columns (brand, popup, ...) is read without it, not refused.
+  const { data } = await selectTolerant(
+    (cols) => db().from('size_charts').select(cols).order('created_at', { ascending: false }),
+    CHART_COLUMNS, { required: CHART_REQUIRED },
+  );
   res.json({ charts: data || [] });
 }));
 
@@ -461,41 +467,89 @@ payRoutes.post('/monitor-ping', ah(async (req, res) => {
   res.json({ ok: true, email, brand });
 }));
 
+/**
+ * Who is asking: the admin, a signed-in account, or nobody. `key` is where that owner's own
+ * brand settings are kept, so one account's brands are never shown to, or overwritten by, another's.
+ */
+async function ownerOf(req) {
+  if (adminFromReq(req)) return { admin: true, key: 'admin', user: null };
+  const user = await userFromAuth(req);
+  if (!user) return null;
+  return { admin: false, key: `user:${user.id}`, user, signedIn: !String(user.id).startsWith('dev:') };
+}
+
+/** The garments an owner may see: all of them for the admin, otherwise their own plus any saved before accounts. */
+function ownedCharts(q, who) {
+  return who.admin ? q : q.or(`user_id.eq.${who.user.id},user_id.is.null`);
+}
+
+// Brands. The source of truth is the `brand` stored on each garment; the owner's brand_meta row (a name -> brand
+// record, plus activations and per-brand popup designs) fills in what the garments cannot say. Anything that
+// cannot be read or written is reported in `warnings` — never swallowed — so the dashboard can tell the owner.
 payRoutes.get('/brands', ah(async (req, res) => {
-  if (!adminFromReq(req)) throw new HttpError(401, 'Log in first');
-  if (!supabaseConfigured()) return res.json({ brands: {}, activations: {}, designs: {} });
-  const { data } = await db().from('brand_meta').select('brands, activations, designs').eq('key', 'admin').maybeSingle()
-    .then((r) => r).catch(() => ({ data: null }));
-  const row = data || {};
-  res.json({
-    brands: row.brands || {},
-    activations: row.activations || {},
-    designs: row.designs || {},
-  });
+  const who = await ownerOf(req);
+  if (!who) throw new HttpError(401, 'Log in first');
+  if (!supabaseConfigured()) return res.json({ brands: {}, activations: {}, designs: {}, warnings: ['memory'] });
+  const warnings = [];
+
+  let meta = {};
+  const metaRes = await db().from('brand_meta').select('brands, activations, designs').eq('key', who.key).maybeSingle();
+  if (metaRes.error) {
+    if (missingTable(metaRes.error)) warnings.push('no-brand-meta-table');
+    else throw dbError(metaRes.error, 'Could not read brands');
+  } else meta = metaRes.data || {};
+
+  const brands = { ...(meta.brands || {}) };
+  const { data, dropped } = await selectTolerant(
+    (cols) => ownedCharts(db().from('size_charts').select(cols), who),
+    ['name', 'brand', 'user_id'], { required: who.admin ? ['name'] : ['name', 'user_id'] },
+  );
+  if (dropped.includes('brand')) warnings.push('no-brand-column');
+  for (const row of data || []) {
+    const brand = String(row.brand || '').trim();
+    if (brand && row.name) brands[String(row.name).toLowerCase()] = brand;   // the garment's own brand wins
+  }
+  res.json({ brands, activations: meta.activations || {}, designs: meta.designs || {}, warnings });
 }));
 
 payRoutes.post('/brands', ah(async (req, res) => {
-  if (!adminFromReq(req)) throw new HttpError(401, 'Log in first');
-  const brands = req.body?.brands || {};
-  const activations = req.body?.activations || {};
-  const designs = req.body?.designs || {};
-  if (supabaseConfigured()) {
-    await db().from('brand_meta').upsert({ key: 'admin', brands, activations, designs, updated_at: new Date().toISOString() });
+  const who = await ownerOf(req);
+  if (!who) throw new HttpError(401, 'Log in first');
+  const plain = (v) => (v && typeof v === 'object' && !Array.isArray(v) ? v : {});
+  const warnings = [];
+  if (!supabaseConfigured()) return res.json({ ok: true, warnings: ['memory'] });
+  const { error } = await db().from('brand_meta').upsert({
+    key: who.key, brands: plain(req.body?.brands), activations: plain(req.body?.activations), designs: plain(req.body?.designs), updated_at: new Date().toISOString(),
+  });
+  if (error) {
+    if (missingTable(error)) warnings.push('no-brand-meta-table');
+    else throw dbError(error, 'Could not save brands');
   }
-  res.json({ ok: true });
+  res.json({ ok: true, warnings });
 }));
 
 chartRoutes.post('/brand-stamp', ah(async (req, res) => {
-  if (!adminFromReq(req)) throw new HttpError(401, 'Log in first');
+  const who = await ownerOf(req);
+  if (!who) throw new HttpError(401, 'Log in first');
   const items = Array.isArray(req.body?.items) ? req.body.items : [];
+  const warnings = [];
+  let stamped = 0;
   if (supabaseConfigured()) {
     for (const item of items) {
       const brand = String(item.brand || '').trim();
       const code = String(item.code || '').trim();
-      if (brand && code) await db().from('size_charts').update({ brand }).eq('code', code);
+      if (!brand || !code) continue;
+      let q = db().from('size_charts').update({ brand }).eq('code', code);
+      if (!who.admin) q = q.eq('user_id', who.user.id);   // an account may only label its own garments
+      const { data: hit, error } = await q.select('code');
+      if (error) {
+        if (missingColumn(error) === 'brand') { warnings.push('no-brand-column'); break; }
+        throw dbError(error, 'Could not label the garment');
+      }
+      stamped += (hit || []).length;   // only what really changed
     }
   }
-  res.json({ ok: true });
+  res.json({ ok: true, stamped, warnings });
 }));
 
 payRoutes.post('/brand-toggle', ah(async (req, res) => {
@@ -689,7 +743,8 @@ chartRoutes.post('/', ah(async (req, res) => {
   // Charts must be savable even without an admin session so public links work.
   // Admin token is still preferred but not required.
   const isAdmin = adminFromReq(req);
-  const access = { unlimited: true, user: null };
+  const user = await userFromAuth(req);   // null for the admin login and for visitors without an account
+  const access = { unlimited: true, user };
   const body = req.body || {};
   const name = String(body.name || '').trim().slice(0, 60);
   if (!name && body.code && body.popup) {
@@ -714,27 +769,45 @@ chartRoutes.post('/', ah(async (req, res) => {
 
   if (supabaseConfigured()) {
     // Always write the chart itself (same reliable path designs use).
-    // user_id is optional — don't let a NOT NULL constraint block the save.
+    const signedIn = Boolean(user && !String(user.id).startsWith('dev:'));
     const payload = { code, name, sex, unit, columns, rows, popup, brand };
-    let { data, error } = await db().from('size_charts').insert(payload).select('id, code, name, sex, unit, columns, rows, popup, brand, created_at').single();
-    if (error && String(error.code) === '23505') {
-      ({ data, error } = await db().from('size_charts').update(payload).eq('code', code).select('id, code, name, sex, unit, columns, rows, popup, brand, created_at').single());
-    }
-    // If a column is missing, retry without the offending fields
-    if (error && /brand|popup|user_id/i.test(error.message || '')) {
-      const slim = { code, name, sex, unit, columns, rows };
-      ({ data, error } = await db().from('size_charts').insert(slim).select('id, code, name, sex, unit, columns, rows, created_at').single());
-      if (error && String(error.code) === '23505') {
-        ({ data, error } = await db().from('size_charts').update(slim).eq('code', code).select('id, code, name, sex, unit, columns, rows, created_at').single());
+    // Record whose chart this is. Without it the chart belongs to nobody: it is in the table, but the account
+    // that saved it never sees it in its own library (that list is, and must be, filtered by owner).
+    if (signedIn) payload.user_id = user.id;
+    const attempt = async (r) => {
+      let { data: saved, error: err } = await db().from('size_charts').insert(r).select('*').single();
+      if (err && String(err.code) === '23505') {
+        // The code exists: this is an edit. Ownership is never changed by an edit.
+        const { user_id: _owner, ...rest } = r;
+        ({ data: saved, error: err } = await db().from('size_charts').update(rest).eq('code', code).select('*').single());
       }
-      if (data) { data.popup = popup; data.brand = brand; }
+      return { data: saved, error: err };
+    };
+    // A column this project's table lacks (brand, popup, user_id) is left out and the write is tried again.
+    const written = await writeTolerant(attempt, payload, { required: ['code', 'name', 'columns', 'rows'] });
+    // A chart the database refused must not be answered "saved": it would live only in this server's memory,
+    // never reach the library, and be gone at the next restart. The page's own fallback then saves it directly.
+    if (written.error) throw dbError(written.error, 'Could not save the chart');
+    let data = written.data;
+    const error = null;
+    if (data) {
+      delete data.user_id;
+      if (data.popup === undefined) data.popup = popup;
+      if (data.brand === undefined) data.brand = brand;
+      const warnings = [];
+      if (brand && written.dropped.includes('brand')) warnings.push('no-brand-column');
+      if (written.dropped.includes('popup')) warnings.push('no-popup-column');
+      data.persisted = true;
+      data.warnings = warnings;
     }
+    // A brand's popup design is shared by that owner's garments of the brand, never by anyone else's.
+    const mine = (q) => (signedIn ? q.eq('user_id', user.id) : q.is('user_id', null));
     if (!error && data && brand) {
       // Persist design on the brand itself (source of truth)
       if (popup && Object.keys(popup).length) {
         await db().from('brand_designs').upsert({ brand, popup, updated_at: new Date().toISOString() }).then(() => {}).catch(() => {});
-        // Also stamp every chart of this brand so older rows stay in sync
-        await db().from('size_charts').update({ popup }).eq('brand', brand).then(() => {}).catch(() => {});
+        // Also stamp this owner's charts of the brand so older rows stay in sync
+        await mine(db().from('size_charts').update({ popup }).eq('brand', brand)).then(() => {}).catch(() => {});
       } else {
         // New chart with no popup — inherit the brand's existing design
         const existing = await db().from('brand_designs').select('popup').eq('brand', brand).maybeSingle();
@@ -753,7 +826,6 @@ chartRoutes.post('/', ah(async (req, res) => {
       charts.set(key, list);
       return res.json(data);
     }
-    // fall through to memory if the database rejected it (e.g. user_id still NOT NULL)
   }
 
   const key = access.user?.id || req.get('x-device-id') || 'anon';
@@ -762,7 +834,8 @@ chartRoutes.post('/', ah(async (req, res) => {
   if (i >= 0) list[i] = { ...list[i], ...row };
   else list.unshift(row);
   charts.set(key, list);
-  res.json(i >= 0 ? list[i] : row);
+  // Supabase is not connected: this chart lives in the server's memory only and will not survive a restart.
+  res.json({ ...(i >= 0 ? list[i] : row), persisted: false, warnings: ['memory'] });
 }));
 
 chartRoutes.delete('/code/:code', ah(async (req, res) => {

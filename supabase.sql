@@ -83,6 +83,44 @@ alter table public.size_charts alter column user_id drop not null;
 
 alter table public.size_charts add column if not exists popup_uses int not null default 0;
 
+-- ---------------------------------------------------------------------------
+-- Brands. The server reads and writes these tables (and a `brand` column on size_charts), but they were
+-- never created here: if they are missing in your project, brand data could only live in the browser.
+-- Safe to re-run (create ... if not exists / add column if not exists). Row level security is on with no
+-- policies, so only the server (which uses the service key) can touch the tables.
+-- ---------------------------------------------------------------------------
+
+-- The brand a garment belongs to. The API works without this column, but then the brand is kept only in
+-- the owner's brand_meta record rather than with the garment itself.
+alter table public.size_charts add column if not exists brand text not null default '';
+
+-- One row per owner ('admin', or 'user:<account id>'): the name -> brand record the dashboard keeps,
+-- plus that owner's brand activations and per-brand popup designs.
+create table if not exists public.brand_meta (
+  key text primary key,
+  brands jsonb not null default '{}'::jsonb,
+  activations jsonb not null default '{}'::jsonb,
+  designs jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now()
+);
+alter table public.brand_meta enable row level security;
+
+-- The popup design a brand's garments share.
+create table if not exists public.brand_designs (
+  brand text primary key,
+  popup jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now()
+);
+alter table public.brand_designs enable row level security;
+
+-- Which brands have been activated for the live popup.
+create table if not exists public.brand_activations (
+  brand text primary key,
+  code text,
+  activated_at timestamptz not null default now()
+);
+alter table public.brand_activations enable row level security;
+
 -- Brand activation payment tracking
 alter table public.brand_activations add column if not exists paid_at timestamptz;
 alter table public.brand_activations add column if not exists expires_at timestamptz;

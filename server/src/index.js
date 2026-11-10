@@ -44,6 +44,8 @@ app.get('/api/health', (_req, res) => {
     ok: true,
     service: 'findmysize',
     supabase: supabaseConfigured(),
+    charts: supabaseConfigured() ? 'database' : 'memory',
+    commit: String(process.env.RENDER_GIT_COMMIT || process.env.GIT_COMMIT || '').slice(0, 7) || null,
     selar: Boolean(config.selarCheckoutUrl),
     wavy: Boolean(config.wavySecretKey),
     missing: missingConfig(),
